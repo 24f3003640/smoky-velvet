@@ -1,0 +1,15 @@
+{
+  "name": "smoky_cyan",
+  "description": "Signature Velvet profile with Deep Velvet Purple and Shimmering Cyan Watercolor Ripple.",
+  "version": 1,
+  "base_color_hex": "#FF00FE",
+  "brightness": 1.0,
+  "reactive_enabled": true,
+  "reactive_duration": 0.72,
+  "reactive_max_radius": 2.6,
+  "reactive_wave_thickness": 1.0,
+  "reactive_crest_color_hex": "#FF6BF8",
+  "custom_key_colors": {},
+  "workspace_bindings": {},
+  "app_rules": {}
+}

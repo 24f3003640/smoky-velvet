@@ -16,6 +16,7 @@ from core.profile import Profile, ProfileManager
 from effects.ripple import LiquidGoldRippleManager
 from effects.heatmap import TypingHeatmapManager
 from effects.telemetry import TelemetryRowEffect
+from effects.volume_gauge import VolumeGaugeEffect
 from hardware.adapter import OpenRGBDeviceAdapter
 from input.listener import InputListener
 from integrations.hyprland import HyprlandEventListener
@@ -50,6 +51,9 @@ class LightingEngine:
         self.telemetry_effect = TelemetryRowEffect()
         self.telemetry_effect.enabled = False
         self.compositor.reactive_layer.add_effect(self.telemetry_effect)
+
+        self.volume_gauge = VolumeGaugeEffect()
+        self.compositor.reactive_layer.add_effect(self.volume_gauge)
 
         # Apply initial active profile
         initial_profile = self.profile_manager.get_active_profile()
@@ -130,6 +134,15 @@ class LightingEngine:
         else:
             self.compositor.indicator_layer.clear_indicator(44)
 
+    def _on_knob_action(self, action: str, timestamp: float) -> None:
+        """Called when rotary encoder volume knob turns, clicks, or triggers gestures."""
+        logger.info(f"Rotary knob action detected: {action}")
+        if action in ("volume_up", "volume_down", "mute_click"):
+            self.volume_gauge.trigger_activity()
+        elif action in ("knob_long_press", "knob_double_click"):
+            logger.info("Knob gesture detected: toggling hardware preset vs software mode!")
+            self._handle_ipc_command({"action": "toggle_mode"})
+
     def _on_workspace_change(self, workspace_name: str) -> None:
         logger.debug(f"Hyprland workspace changed to: {workspace_name}")
         prof = self.profile_manager.get_active_profile()
@@ -168,6 +181,9 @@ class LightingEngine:
                     "reactive_enabled": self.compositor.reactive_layer.enabled,
                     "heatmap_enabled": self.heatmap_manager.enabled,
                     "telemetry_enabled": self.telemetry_effect.enabled,
+                    "hardware_mode": getattr(self.adapter, "is_paused", False),
+                    "volume": int(self.volume_gauge.current_volume * 100),
+                    "muted": self.volume_gauge.is_muted,
                     "fps": self.target_fps
                 }
             }
@@ -194,6 +210,45 @@ class LightingEngine:
         elif action == "toggle_reactive":
             self.compositor.reactive_layer.enabled = not self.compositor.reactive_layer.enabled
             return {"status": "ok", "reactive_enabled": self.compositor.reactive_layer.enabled}
+
+        elif action == "pause" or action == "hardware_mode":
+            if hasattr(self.adapter, "pause_streaming"):
+                self.adapter.pause_streaming()
+            return {"status": "ok", "mode": "hardware_preset"}
+
+        elif action == "resume" or action == "software_mode":
+            if hasattr(self.adapter, "resume_streaming"):
+                self.adapter.resume_streaming()
+                self.trigger_key(13)  # Sapphire ripple confirmation from Delete key
+            return {"status": "ok", "mode": "smoky_velvet"}
+
+        elif action == "toggle_mode":
+            if hasattr(self.adapter, "is_paused") and self.adapter.is_paused:
+                self.adapter.resume_streaming()
+                self.trigger_key(13)
+                return {"status": "ok", "mode": "smoky_velvet"}
+            else:
+                if hasattr(self.adapter, "pause_streaming"):
+                    self.adapter.pause_streaming()
+                return {"status": "ok", "mode": "hardware_preset"}
+
+        elif action == "volume":
+            import subprocess
+            sub = req.get("subaction")
+            if sub == "up":
+                step = req.get("step", 5)
+                subprocess.run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", f"{step}%+"], check=False)
+            elif sub == "down":
+                step = req.get("step", 5)
+                subprocess.run(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", f"{step}%-"], check=False)
+            elif sub == "mute":
+                subprocess.run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"], check=False)
+            self.volume_gauge.trigger_activity()
+            return {
+                "status": "ok",
+                "volume": int(self.volume_gauge.current_volume * 100),
+                "muted": self.volume_gauge.is_muted
+            }
 
         elif action == "toggle_heatmap":
             self.heatmap_manager.enabled = not self.heatmap_manager.enabled
@@ -222,6 +277,7 @@ class LightingEngine:
         # 2. Start input listener
         if self.input_listener:
             self.input_listener.set_callback(self.trigger_key)
+            self.input_listener.set_knob_callback(self._on_knob_action)
             self.input_listener.start()
 
         # 3. Start IPC server

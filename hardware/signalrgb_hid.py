@@ -52,6 +52,11 @@ class SignalRGBRawHIDAdapter:
         self._fd: Optional[int] = None
         self._last_send_time: float = 0.0
         self._connected: bool = False
+        self._paused: bool = False
+
+    @property
+    def is_paused(self) -> bool:
+        return self._paused
 
     @property
     def is_connected(self) -> bool:
@@ -146,10 +151,40 @@ class SignalRGBRawHIDAdapter:
         self._connected = False
         logger.info("Disconnected from URX Core75 Raw HID.")
 
+    def pause_streaming(self) -> bool:
+        """Release keyboard from SignalRGB mode (0x26), allowing onboard preset RGB modes to run without flicker."""
+        if self._fd is not None:
+            try:
+                disable_pkt = bytes([CMD_SIGNALRGB_DISABLE] + [0x00] * (PACKET_SIZE - 1))
+                os.write(self._fd, disable_pkt)
+                self._paused = True
+                logger.info("Paused SignalRGB streaming. Keyboard returned to hardware preset mode.")
+                return True
+            except Exception as e:
+                logger.warning(f"Error pausing SignalRGB stream: {e}")
+        return False
+
+    def resume_streaming(self) -> bool:
+        """Re-engage SignalRGB mode (0x25) for Smoky Velvet host effects."""
+        if self._fd is not None:
+            try:
+                enable_pkt = bytes([CMD_SIGNALRGB_ENABLE] + [0x00] * (PACKET_SIZE - 1))
+                os.write(self._fd, enable_pkt)
+                time.sleep(0.02)
+                self._paused = False
+                logger.info("Resumed SignalRGB streaming. Smoky Velvet active.")
+                return True
+            except Exception as e:
+                logger.warning(f"Error resuming SignalRGB stream: {e}")
+        return False
+
     def send_frame(self, colors: List[Color], force: bool = False) -> bool:
         """
         Stream full 82-LED RGB frame to hardware via 9-LED packets.
         """
+        if self._paused and not force:
+            return False
+
         if not self.is_connected:
             if not self.connect():
                 return False

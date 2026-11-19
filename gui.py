@@ -336,6 +336,16 @@ class MainWindow(QMainWindow):
         self.btn_toggle_reactive.clicked.connect(self._toggle_reactive)
         slider_vbox.addWidget(self.btn_toggle_reactive)
 
+        # Hardware mode toggle
+        self.btn_toggle_mode = QPushButton("🎛️ Onboard RGB Presets (No Flicker)")
+        self.btn_toggle_mode.clicked.connect(self._toggle_mode)
+        slider_vbox.addWidget(self.btn_toggle_mode)
+
+        # Volume HUD test
+        self.btn_test_vol = QPushButton("🔊 Test F1–F12 Volume HUD")
+        self.btn_test_vol.clicked.connect(self._test_volume_hud)
+        slider_vbox.addWidget(self.btn_test_vol)
+
         controls_layout.addWidget(slider_group, 1)
 
         main_layout.addLayout(controls_layout)
@@ -385,6 +395,13 @@ class MainWindow(QMainWindow):
             enabled = resp.get("reactive_enabled", True)
             self.btn_toggle_reactive.setText(f"Toggle Ripple Effect ({'ON' if enabled else 'OFF'})")
 
+    def _toggle_mode(self):
+        resp = IpcClient.send_command({"action": "toggle_mode"})
+        self._refresh_status()
+
+    def _test_volume_hud(self):
+        IpcClient.send_command({"action": "volume"})
+
     def _pick_base_color(self):
         col = QColorDialog.getColor(self.canvas.base_color, self, "Select Velvet Base Color")
         if col.isValid():
@@ -414,8 +431,16 @@ class MainWindow(QMainWindow):
         resp = IpcClient.send_command({"action": "status"})
         if resp.get("status") == "ok":
             data = resp.get("data", {})
-            self.status_pill.setText(f"● CONNECTED ({data.get('device_name')})")
-            self.status_pill.setStyleSheet("color: #10B981; font-weight: bold; background: #064E3B; border-radius: 6px; padding: 4px 8px;")
+            hw_mode = data.get("hardware_mode", False)
+            if hw_mode:
+                self.status_pill.setText("● HARDWARE PRESETS (No Flicker)")
+                self.status_pill.setStyleSheet("color: #F59E0B; font-weight: bold; background: #78350F; border-radius: 6px; padding: 4px 8px;")
+                self.btn_toggle_mode.setText("✨ Re-engage Smoky Velvet")
+            else:
+                self.status_pill.setText(f"● CONNECTED ({data.get('device_name')})")
+                self.status_pill.setStyleSheet("color: #10B981; font-weight: bold; background: #064E3B; border-radius: 6px; padding: 4px 8px;")
+                self.btn_toggle_mode.setText("🎛️ Onboard RGB Presets (No Flicker)")
+
             active = data.get("active_profile", "")
             if active and self.profile_combo.currentText() != active:
                 self.profile_combo.blockSignals(True)

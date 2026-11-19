@@ -50,6 +50,18 @@ def main():
     # telemetry
     subparsers.add_parser("telemetry", help="Toggle hardware telemetry F-row meter on/off")
 
+    # volume
+    vol_parser = subparsers.add_parser("volume", help="Trigger F1-F12 fluid volume HUD or adjust PipeWire audio")
+    vol_parser.add_argument("--up", type=int, nargs="?", const=5, help="Increase volume (default: 5%%)")
+    vol_parser.add_argument("--down", type=int, nargs="?", const=5, help="Decrease volume (default: 5%%)")
+    vol_parser.add_argument("--mute", action="store_true", help="Toggle mute")
+
+    # hardware-mode / pause
+    subparsers.add_parser("hardware-mode", help="Release keyboard to onboard firmware RGB presets (zero flicker)")
+
+    # software-mode / resume
+    subparsers.add_parser("software-mode", help="Re-engage Smoky Velvet fluid lighting engine")
+
     args = parser.parse_args()
 
     if args.command == "gui":
@@ -58,6 +70,24 @@ def main():
         python_bin = Path(__file__).parent / ".venv" / "bin" / "python3"
         subprocess.Popen([str(python_bin), str(gui_path)], start_new_session=True)
         print("🌌 Launched Smoky Velvet Desktop Studio GUI!")
+        return
+
+    if args.command == "hardware-mode":
+        resp = IpcClient.send_command({"action": "pause"})
+        if resp.get("status") == "ok":
+            print("🎛️ Switched to Hardware Preset Mode!")
+            print("   You can now cycle onboard keyboard RGB modes (Fn combos) with ZERO flicker.")
+            print("   Run 'smoky-velvet software-mode' whenever you want Smoky Velvet back.")
+        else:
+            print(f"❌ Error: {resp.get('message')}")
+        return
+
+    if args.command == "software-mode":
+        resp = IpcClient.send_command({"action": "resume"})
+        if resp.get("status") == "ok":
+            print("✨ Re-engaged Smoky Velvet Lighting Engine! Fluid ripples active.")
+        else:
+            print(f"❌ Error: {resp.get('message')}")
         return
 
     if not args.command or args.command == "status":
@@ -75,6 +105,31 @@ def main():
         print(f"  • Typing Heatmap:  {'Active' if data.get('heatmap_enabled') else 'Disabled'}")
         print(f"  • System Telemetry:{'Active' if data.get('telemetry_enabled') else 'Disabled'}")
         print(f"  • Frame Rate:      {data.get('fps', 50):.0f} FPS")
+        hw_mode = "Hardware Preset Mode (Firmware active)" if data.get('hardware_mode') else "Smoky Velvet (Host active)"
+        print(f"  • Operating Mode:  {hw_mode}")
+        vol_str = f"{data.get('volume', 0)}% {'[MUTED]' if data.get('muted') else ''}"
+        print(f"  • System Audio:    {vol_str}")
+        return
+
+    if args.command == "volume":
+        subaction = None
+        step = 5
+        if args.up is not None:
+            subaction = "up"
+            step = args.up
+        elif args.down is not None:
+            subaction = "down"
+            step = args.down
+        elif args.mute:
+            subaction = "mute"
+
+        resp = IpcClient.send_command({"action": "volume", "subaction": subaction, "step": step})
+        if resp.get("status") == "ok":
+            vol = resp.get("volume", 0)
+            muted = " [MUTED]" if resp.get("muted") else ""
+            print(f"🔊 F1–F12 Volume HUD Triggered: {vol}%{muted}")
+        else:
+            print(f"❌ Error: {resp.get('message')}")
         return
 
     if args.command == "heatmap":

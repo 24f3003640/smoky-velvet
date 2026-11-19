@@ -12,22 +12,24 @@ class TestRipple(unittest.TestCase):
 
     def test_single_ripple_lifecycle(self):
         t0 = 100.0
-        ripple = SingleRipple(origin_led=75, start_time=t0, duration=0.8, expansion=0.55)
+        ripple = SingleRipple(origin_led=75, start_time=t0, duration=0.85, expansion=0.55)
 
         # At t=t0, origin LED (dist=0) should receive Champagne Glow
         ripple.update(t0)
-        c0 = ripple.calculate_led_contribution(0.0)
-        self.assertIsNotNone(c0)
-        self.assertGreater(c0.r, 200)
+        contrib = ripple.calculate_led_contribution(0.0)
+        self.assertIsNotNone(contrib)
+        col, alpha = contrib
+        self.assertGreater(col.r, 200)
+        self.assertGreater(alpha, 0.5)
 
         # After duration, ripple finishes
-        ripple.update(t0 + 0.85)
+        ripple.update(t0 + 0.90)
         self.assertTrue(ripple.is_finished)
         self.assertIsNone(ripple.calculate_led_contribution(0.0))
 
     def test_ripple_propagation(self):
         t0 = 100.0
-        ripple = SingleRipple(origin_led=75, start_time=t0, duration=0.8, expansion=0.55, max_radius=5.0)
+        ripple = SingleRipple(origin_led=75, start_time=t0, duration=0.85, expansion=0.55, max_radius=5.0)
 
         # At half expansion (age = 0.275), wave crest should be around radius 2.5
         ripple.update(t0 + 0.275)
@@ -50,6 +52,9 @@ class TestRipple(unittest.TestCase):
 
         # Space key (75) should be illuminated
         self.assertIsNotNone(buffer[75])
+        col, alpha = buffer[75]
+        self.assertIsInstance(col, Color)
+        self.assertGreater(alpha, 0.0)
 
 if __name__ == '__main__':
     unittest.main()

@@ -114,7 +114,7 @@ class LinuxEvdevListener(InputListener):
 
                             led_idx = EVDEV_KEY_TO_LED.get(key_name)
                             if led_idx is not None and self._callback is not None:
-                                self._callback(led_idx, event.timestamp())
+                                self._callback(led_idx, time.monotonic())
             except Exception as e:
                 if not self._stop_event.is_set():
                     logger.error(f"Evdev multi-read loop error: {e}")

@@ -254,18 +254,18 @@ class LightingEngine:
             self.adapter.send_frame(frame)
 
     def _render_loop(self) -> None:
-        last_time = time.time()
+        last_time = time.monotonic()
         initial_frame, _ = self.compositor.render_frame()
         self.adapter.send_frame(initial_frame, force=True)
 
         while not self._stop_event.is_set():
-            now = time.time()
+            now = time.monotonic()
             dt = now - last_time
             last_time = now
 
             self.tick(dt, now)
 
-            elapsed = time.time() - now
+            elapsed = time.monotonic() - now
             sleep_time = self.frame_interval - elapsed
             if sleep_time > 0:
                 time.sleep(sleep_time)

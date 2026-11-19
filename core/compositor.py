@@ -3,7 +3,7 @@ Layer-based lighting compositor.
 Combines Base, Reactive, Indicator, and Environmental layers into a single RGB frame.
 """
 from __future__ import annotations
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from core.color import Color, MIDNIGHT_PURPLE
 from core.layout import KeyboardLayout
 from effects.base import Effect
@@ -47,22 +47,22 @@ class ReactiveLayer:
     def update(self, dt: float, current_time: float) -> None:
         for eff in self.effects:
             eff.update(dt, current_time)
-        # Prune dead effects
         self.effects = [eff for eff in self.effects if not eff.is_finished()]
 
-    def render(self, layout: KeyboardLayout) -> List[Optional[Color]]:
-        buffer: List[Optional[Color]] = [None] * self.led_count
+    def render(self, layout: KeyboardLayout) -> List[Optional[Tuple[Color, float]]]:
+        buffer: List[Optional[Tuple[Color, float]]] = [None] * self.led_count
         if not self.enabled:
             return buffer
 
         for eff in self.effects:
             eff.render(layout, buffer)
 
-        # Scale by layer opacity if needed
+        # Scale alpha by layer opacity if needed
         if self.opacity < 1.0:
             for i in range(self.led_count):
                 if buffer[i] is not None:
-                    buffer[i] = buffer[i].scale(self.opacity) # type: ignore
+                    col, a = buffer[i] # type: ignore
+                    buffer[i] = (col, a * self.opacity)
 
         return buffer
 
@@ -119,13 +119,14 @@ class Compositor:
         else:
             frame = [Color(0, 0, 0)] * self.led_count
 
-        # Step 2: Reactive Layer (Additive blending over base)
+        # Step 2: Reactive Layer (Alpha-blending vivid gold over base)
         if self.reactive_layer.enabled and self.reactive_layer.effects:
             reactive_buf = self.reactive_layer.render(self.layout)
             for i in range(self.led_count):
                 rec = reactive_buf[i]
                 if rec is not None:
-                    frame[i] = frame[i].blend_additive(rec)
+                    color, alpha = rec
+                    frame[i] = frame[i].blend_alpha(color, alpha)
 
         # Step 3: Indicator Layer (Override with alpha blend)
         if self.indicator_layer.enabled and self.indicator_layer.indicators:

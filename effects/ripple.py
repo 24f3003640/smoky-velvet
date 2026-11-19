@@ -5,7 +5,7 @@ Calculates organic expanding waves from triggered key coordinates across the 81-
 from __future__ import annotations
 import math
 import time
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from core.color import Color, LIQUID_GOLD_GRADIENT
 from core.layout import KeyboardLayout
 from effects.base import Effect
@@ -16,11 +16,11 @@ class SingleRipple:
         self,
         origin_led: int,
         start_time: float,
-        duration: float = 0.8,      # 800 ms
+        duration: float = 0.85,     # 850 ms
         expansion: float = 0.55,    # 550 ms
-        fade: float = 0.25,         # 250 ms
-        max_radius: float = 5.0,    # 5 key distances
-        wave_thickness: float = 1.5 # 1.5 key distances
+        fade: float = 0.30,         # 300 ms
+        max_radius: float = 5.5,    # 5.5 key distances
+        wave_thickness: float = 1.8 # 1.8 key distances
     ):
         self.origin_led = origin_led
         self.start_time = start_time
@@ -29,7 +29,7 @@ class SingleRipple:
         self.fade = fade
         self.max_radius = max_radius
         self.wave_thickness = wave_thickness
-        # Gaussian standard deviation based on FWHM = wave_thickness
+        # Gaussian standard deviation
         self.sigma = max(0.1, wave_thickness / 2.355)
         self.two_sigma_sq = 2.0 * self.sigma * self.sigma
         self.age = 0.0
@@ -41,7 +41,10 @@ class SingleRipple:
     def is_finished(self) -> bool:
         return self.age >= self.duration
 
-    def calculate_led_contribution(self, distance: float) -> Optional[Color]:
+    def calculate_led_contribution(self, distance: float) -> Optional[Tuple[Color, float]]:
+        """
+        Returns (Color, intensity) where intensity in [0.0, 1.0].
+        """
         if self.age < 0 or self.age >= self.duration:
             return None
 
@@ -63,15 +66,14 @@ class SingleRipple:
         gaussian = math.exp(-(dist_from_crest * dist_from_crest) / self.two_sigma_sq)
         intensity = gaussian * fade_factor
 
-        if intensity < 0.02:
+        if intensity < 0.03:
             return None
 
         # Progress through 4-stage Liquid Gold gradient (0.0 to 1.0)
         grad_progress = min(1.0, self.age / self.duration)
         gold_color = LIQUID_GOLD_GRADIENT.sample(grad_progress)
 
-        # Return color scaled by wave intensity
-        return gold_color.scale(intensity)
+        return (gold_color, min(1.0, intensity))
 
 
 class LiquidGoldRippleManager(Effect):
@@ -80,11 +82,11 @@ class LiquidGoldRippleManager(Effect):
     """
     def __init__(
         self,
-        duration: float = 0.8,
+        duration: float = 0.85,
         expansion: float = 0.55,
-        fade: float = 0.25,
-        max_radius: float = 5.0,
-        wave_thickness: float = 1.5,
+        fade: float = 0.30,
+        max_radius: float = 5.5,
+        wave_thickness: float = 1.8,
         max_concurrent: int = 16
     ):
         self.duration = duration
@@ -97,8 +99,7 @@ class LiquidGoldRippleManager(Effect):
 
     def trigger(self, origin_led: int, timestamp: Optional[float] = None) -> None:
         """Trigger a new ripple originating from origin_led."""
-        t = timestamp if timestamp is not None else time.time()
-        # Cap concurrent ripples to prevent performance degradation under rapid typing
+        t = timestamp if timestamp is not None else time.monotonic()
         if len(self.ripples) >= self.max_concurrent:
             self.ripples.pop(0)
 
@@ -116,10 +117,9 @@ class LiquidGoldRippleManager(Effect):
     def update(self, dt: float, current_time: float) -> None:
         for r in self.ripples:
             r.update(current_time)
-        # Prune expired ripples
         self.ripples = [r for r in self.ripples if not r.is_finished]
 
-    def render(self, layout: KeyboardLayout, buffer: List[Optional[Color]]) -> None:
+    def render(self, layout: KeyboardLayout, buffer: List[Optional[Tuple[Color, float]]]) -> None:
         if not self.ripples:
             return
 
@@ -128,12 +128,16 @@ class LiquidGoldRippleManager(Effect):
                 dist = layout.distance(ripple.origin_led, led_idx)
                 contrib = ripple.calculate_led_contribution(dist)
                 if contrib is not None:
+                    color, alpha = contrib
                     existing = buffer[led_idx]
                     if existing is None:
-                        buffer[led_idx] = contrib
+                        buffer[led_idx] = (color, alpha)
                     else:
-                        # Additive composition for overlapping waves
-                        buffer[led_idx] = existing.blend_additive(contrib)
+                        prev_col, prev_alpha = existing
+                        # Combine alphas and blend colors
+                        new_alpha = min(1.0, prev_alpha + alpha * (1.0 - prev_alpha))
+                        blended_col = prev_col.lerp(color, alpha / max(0.001, prev_alpha + alpha))
+                        buffer[led_idx] = (blended_col, new_alpha)
 
     def is_finished(self) -> bool:
         return len(self.ripples) == 0

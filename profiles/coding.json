@@ -1,0 +1,14 @@
+{
+  "name": "coding",
+  "description": "Refined dark violet underglow with fast, localized gold ripples.",
+  "version": 1,
+  "base_color_hex": "#220D30",
+  "brightness": 0.85,
+  "reactive_enabled": true,
+  "reactive_duration": 0.5,
+  "reactive_max_radius": 3.5,
+  "reactive_wave_thickness": 1.5,
+  "custom_key_colors": {},
+  "workspace_bindings": {},
+  "app_rules": {}
+}

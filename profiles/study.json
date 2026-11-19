@@ -1,0 +1,14 @@
+{
+  "name": "study",
+  "description": "Distraction-free static velvet illumination with animations disabled.",
+  "version": 1,
+  "base_color_hex": "#1E1026",
+  "brightness": 0.6,
+  "reactive_enabled": false,
+  "reactive_duration": 0.8,
+  "reactive_max_radius": 5.0,
+  "reactive_wave_thickness": 1.5,
+  "custom_key_colors": {},
+  "workspace_bindings": {},
+  "app_rules": {}
+}

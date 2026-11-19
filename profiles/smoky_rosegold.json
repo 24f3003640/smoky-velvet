@@ -1,14 +1,14 @@
 {
   "name": "smoky_rosegold",
-  "description": "Signature Velvet profile with Deep Velvet Purple and Warm Rose Gold Watercolor Ripple.",
+  "description": "Signature Velvet profile with Deep Velvet Purple and Warm 18k Rose Gold Ripple.",
   "version": 1,
   "base_color_hex": "#FF00FE",
   "brightness": 1.0,
   "reactive_enabled": true,
-  "reactive_duration": 0.60,
+  "reactive_duration": 0.72,
   "reactive_max_radius": 2.6,
   "reactive_wave_thickness": 1.0,
-  "reactive_crest_color_hex": "#FF7E65",
+  "reactive_crest_color_hex": "#FF5F23",
   "custom_key_colors": {},
   "workspace_bindings": {},
   "app_rules": {}

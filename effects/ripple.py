@@ -1,12 +1,13 @@
 """
 Liquid Antique Gold & Watercolor reactive ripple effect for URX Core75.
 Calculates organic expanding waves from triggered key coordinates across the 81-LED matrix.
-Implements watercolor dispersion, smooth cosine envelope, and chromatic pigment dissolution.
+Implements watercolor dispersion, smooth cosine envelope, dynamic typing-cadence adaptation,
+per-key debounce, and dominant-wave interference blending to tame typing chaos.
 """
 from __future__ import annotations
 import math
 import time
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from core.color import Color, SMOKY_PLUM_PURPLE, MOLTEN_ANTIQUE_GOLD, DEEP_ANTIQUE_GOLD, VELVET_MAGENTA, LIQUID_GOLD_GRADIENT
 from core.layout import KeyboardLayout
 from effects.base import Effect
@@ -92,7 +93,7 @@ class SingleRipple:
 
 class LiquidGoldRippleManager(Effect):
     """
-    Manages active overlapping ripples triggered by user keystrokes.
+    Manages active overlapping ripples with cadence adaptation and chaos suppression.
     """
     def __init__(
         self,
@@ -115,19 +116,48 @@ class LiquidGoldRippleManager(Effect):
         self.base_color = base_color if base_color is not None else SMOKY_PLUM_PURPLE
         self.ripples: List[SingleRipple] = []
 
+        # Anti-chaos tracking
+        self._last_key_times: Dict[int, float] = {}
+        self._last_keystroke_time: float = 0.0
+        self._keystroke_interval_ema: float = 0.50
+
     def trigger(self, origin_led: int, timestamp: Optional[float] = None) -> None:
-        """Trigger a new ripple originating from origin_led."""
+        """
+        Trigger a new ripple originating from origin_led with cadence-aware adaptation
+        and per-key debounce to prevent overlapping chaos.
+        """
         t = timestamp if timestamp is not None else time.monotonic()
+
+        # 1. Per-key debounce: if the exact same key was struck < 90ms ago, ignore duplicate
+        if origin_led in self._last_key_times:
+            if t - self._last_key_times[origin_led] < 0.09:
+                return
+        self._last_key_times[origin_led] = t
+
+        # 2. Dynamic Cadence Detection:
+        # Smoothly track typing speed via Exponential Moving Average of keystroke intervals
+        if self._last_keystroke_time > 0:
+            dt = max(0.04, min(1.0, t - self._last_keystroke_time))
+            self._keystroke_interval_ema = 0.35 * dt + 0.65 * self._keystroke_interval_ema
+        self._last_keystroke_time = t
+
+        # 3. Dynamic speed-based tuning:
+        # Slow typing / Pause (interval >= 0.45s) -> Full languid spread (e.g. 0.60s, 2.6 keys)
+        # Rapid typing (interval <= 0.14s)      -> Tight, crisp droplet (e.g. 0.38s, 1.9 keys)
+        cadence_factor = max(0.0, min(1.0, (self._keystroke_interval_ema - 0.14) / 0.31))
+        dyn_duration = max(0.35, self.duration * (0.65 + 0.35 * cadence_factor))
+        dyn_radius = max(1.8, self.max_radius * (0.75 + 0.25 * cadence_factor))
+
         if len(self.ripples) >= self.max_concurrent:
             self.ripples.pop(0)
 
         ripple = SingleRipple(
             origin_led=origin_led,
             start_time=t,
-            duration=self.duration,
+            duration=dyn_duration,
             expansion=self.expansion,
             fade=self.fade,
-            max_radius=self.max_radius,
+            max_radius=dyn_radius,
             wave_thickness=self.wave_thickness,
             crest_color=self.crest_color,
             base_color=self.base_color,
@@ -140,24 +170,47 @@ class LiquidGoldRippleManager(Effect):
         self.ripples = [r for r in self.ripples if not r.is_finished]
 
     def render(self, layout: KeyboardLayout, buffer: List[Optional[Tuple[Color, float]]]) -> None:
+        """
+        Renders ripples with dominant-wave interference blending.
+        Eliminates bright white/cluster blowouts when typing fast.
+        """
         if not self.ripples:
             return
+
+        # Collect contributions per LED
+        led_contributions: List[List[Tuple[Color, float]]] = [[] for _ in range(layout.led_count)]
 
         for ripple in self.ripples:
             for led_idx in range(layout.led_count):
                 dist = layout.distance(ripple.origin_led, led_idx)
                 contrib = ripple.calculate_led_contribution(dist, self.base_color)
                 if contrib is not None:
-                    color, alpha = contrib
-                    existing = buffer[led_idx]
-                    if existing is None:
-                        buffer[led_idx] = (color, alpha)
-                    else:
-                        prev_col, prev_alpha = existing
-                        # Combine alphas and blend colors
-                        new_alpha = min(1.0, prev_alpha + alpha * (1.0 - prev_alpha))
-                        blended_col = prev_col.lerp(color, alpha / max(0.001, prev_alpha + alpha))
-                        buffer[led_idx] = (blended_col, new_alpha)
+                    led_contributions[led_idx].append(contrib)
+
+        # Composite per LED using dominant-wave interference:
+        # The primary wave retains full crest definition; secondary overlapping waves
+        # add a soft ambient wash without blowing out the LED cluster to full saturation.
+        for led_idx in range(layout.led_count):
+            contribs = led_contributions[led_idx]
+            if not contribs:
+                continue
+
+            if len(contribs) == 1:
+                buffer[led_idx] = contribs[0]
+            else:
+                # Sort by intensity descending
+                contribs.sort(key=lambda c: c[1], reverse=True)
+                dominant_col, dominant_alpha = contribs[0]
+
+                # Secondary waves contribute a soft 20% ambient wash
+                sec_alpha_sum = sum(c[1] for c in contribs[1:]) * 0.20
+                final_alpha = min(0.95, dominant_alpha + sec_alpha_sum * (1.0 - dominant_alpha))
+
+                # Color softly blends towards secondary hues
+                secondary_col = contribs[1][0]
+                final_col = dominant_col.lerp(secondary_col, min(0.30, sec_alpha_sum))
+
+                buffer[led_idx] = (final_col, final_alpha)
 
     def is_finished(self) -> bool:
         # The manager persists across the engine lifecycle

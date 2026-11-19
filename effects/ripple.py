@@ -23,11 +23,11 @@ class SingleRipple:
         self,
         origin_led: int,
         start_time: float,
-        duration: float = 0.72,      # 720 ms smooth lingering duration (+20%)
-        expansion: float = 0.50,     # Kept for backward compatibility
-        fade: float = 0.22,          # Kept for backward compatibility
-        max_radius: float = 2.6,     # 2-3 keys localized radius
-        wave_thickness: float = 1.0, # 1.0 key distance
+        duration: float = 1.20,      # 1.2s slower, languid lingering duration
+        expansion: float = 0.80,     # Kept for backward compatibility
+        fade: float = 0.40,          # Kept for backward compatibility
+        max_radius: float = 3.0,     # ~3 keys localized spread
+        wave_thickness: float = 1.2, # 1.2 keys soft liquid thickness
         crest_color: Optional[Color] = None,
         base_color: Optional[Color] = None,
     ):
@@ -97,11 +97,11 @@ class LiquidGoldRippleManager(Effect):
     """
     def __init__(
         self,
-        duration: float = 0.72,
-        expansion: float = 0.50,
-        fade: float = 0.22,
-        max_radius: float = 2.6,
-        wave_thickness: float = 1.0,
+        duration: float = 1.20,
+        expansion: float = 0.80,
+        fade: float = 0.40,
+        max_radius: float = 3.0,
+        wave_thickness: float = 1.2,
         max_concurrent: int = 16,
         crest_color: Optional[Color] = None,
         base_color: Optional[Color] = None,
@@ -142,11 +142,12 @@ class LiquidGoldRippleManager(Effect):
         self._last_keystroke_time = t
 
         # 3. Dynamic speed-based tuning:
-        # Slow typing / Pause (interval >= 0.45s) -> Full languid spread (0.72s, 2.6 keys)
-        # Rapid typing (interval <= 0.14s)      -> Tight, responsive droplet (0.46s, 1.95 keys)
+        # Slower, calm, lingering watercolor wave
+        # Slow typing / Pause (interval >= 0.45s) -> Full languid spread (1.20s, 3.0 keys)
+        # Rapid typing (interval <= 0.14s)      -> Tight, responsive droplet (0.75s, 2.2 keys)
         cadence_factor = max(0.0, min(1.0, (self._keystroke_interval_ema - 0.14) / 0.31))
-        dyn_duration = max(0.44, self.duration * (0.65 + 0.35 * cadence_factor))
-        dyn_radius = max(1.9, self.max_radius * (0.75 + 0.25 * cadence_factor))
+        dyn_duration = max(0.65, self.duration * (0.60 + 0.40 * cadence_factor))
+        dyn_radius = max(2.0, self.max_radius * (0.75 + 0.25 * cadence_factor))
 
         if len(self.ripples) >= self.max_concurrent:
             self.ripples.pop(0)

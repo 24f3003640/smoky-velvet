@@ -8,7 +8,7 @@
   "reactive_duration": 0.72,
   "reactive_max_radius": 2.6,
   "reactive_wave_thickness": 1.0,
-  "reactive_crest_color_hex": "#FF2865",
+  "reactive_crest_color_hex": "#ff6fe5",
   "custom_key_colors": {},
   "workspace_bindings": {},
   "app_rules": {}

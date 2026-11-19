@@ -7,8 +7,8 @@
 - [x] **Milestone 3: Reactive Effects & Input Engine (Fluid Watercolor Ripple)** (Completed)
 - [x] **Milestone 4: Profile Management & CLI Controls** (Completed)
 - [x] **Milestone 5: Linux Desktop Integrations (Hyprland + Caelestia)** (Completed)
+- [x] **Milestone 7: Desktop GUI Studio (V1.0 Polish & Packaging)** (Completed)
 - [ ] **Milestone 6: Windows Platform Compatibility** (Planned)
-- [ ] **Milestone 7: Desktop GUI Studio (V1.0 Polish & Packaging)** (In Progress)
 - [ ] **Milestone 8: V1.1 Smart Profiles & Typing Heatmap** (Planned)
 - [ ] **Milestone 9: V1.2 Audio/Screen Reactive & V2.0 Creator Studio** (Planned)
 
@@ -40,4 +40,4 @@
 | **M4-2** | Fast UNIX Socket IPC Server & `smoky-velvet` CLI | M4 | **Complete** | Instant CLI commands for profile, brightness, ripple testing, and status control |
 | **M5-1** | Hyprland IPC adapter for active window / workspace sync | M5 | **Complete** | Config-driven workspace and window rules over Hyprland `.socket2.sock` |
 | **M5-2** | Caelestia launcher integration | M5 | **Complete** | Installed `smoky-velvet` into `~/.local/bin/` and `.desktop` entry |
-| **M7-1** | PyQt6 Desktop Studio GUI (`gui.py`) | M7 | **In Progress** | Real-time 2D 81-LED keyboard visualizer, interactive color pickers, and tray app |
+| **M7-1** | PyQt6 Desktop Studio GUI (`gui.py`) | M7 | **Complete** | Real-time 2D 81-LED keyboard visualizer, interactive color pickers, and live ripple testing |

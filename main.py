@@ -31,7 +31,7 @@ def main():
     parser = argparse.ArgumentParser(description="Smoky Velvet: Cross-Platform RGB Customization Engine")
     parser.add_argument("--demo", action="store_true", help="Run automated ripple wave demonstration")
     parser.add_argument("--brightness", type=float, default=1.0, help="Brightness level (0.0 to 1.0)")
-    parser.add_argument("--fps", type=float, default=40.0, help="Target update frequency in FPS (default: 40)")
+    parser.add_argument("--fps", type=float, default=35.0, help="Target update frequency in FPS (default: 35)")
     parser.add_argument("--backend", choices=["rawhid", "openrgb"], default="rawhid", help="Transport backend (default: rawhid direct driver)")
     parser.add_argument("--hidraw", type=str, default=None, help="Explicit hidraw path (e.g. /dev/hidraw1)")
     parser.add_argument("--host", type=str, default="127.0.0.1", help="OpenRGB / ColorHoster host")

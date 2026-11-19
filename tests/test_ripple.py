@@ -56,5 +56,31 @@ class TestRipple(unittest.TestCase):
         self.assertIsInstance(col, Color)
         self.assertGreater(alpha, 0.0)
 
+    def test_watercolor_dissolution_and_smoothness(self):
+        t0 = 100.0
+        base = Color(255, 0, 254)
+        crest = Color(255, 107, 248)
+        ripple = SingleRipple(origin_led=75, start_time=t0, duration=0.60, max_radius=2.6, crest_color=crest, base_color=base)
+
+        # Early stage: color at wavefront crest
+        ripple.update(t0 + 0.05)
+        # At age 0.05, crest radius is 2.6 * sqrt(0.05/0.60) ~= 0.75
+        c_early = ripple.calculate_led_contribution(0.75)
+        self.assertIsNotNone(c_early)
+        col_early, a_early = c_early
+        self.assertGreater(a_early, 0.8)
+
+        # Late stage: color dissolved towards base, envelope softly decaying
+        ripple.update(t0 + 0.50)
+        c_late = ripple.calculate_led_contribution(2.3)
+        if c_late is not None:
+            col_late, a_late = c_late
+            self.assertLess(a_late, a_early)
+
+        # Exactly at or after duration: finished cleanly
+        ripple.update(t0 + 0.61)
+        self.assertTrue(ripple.is_finished)
+        self.assertIsNone(ripple.calculate_led_contribution(2.6))
+
 if __name__ == '__main__':
     unittest.main()

@@ -42,7 +42,7 @@ class SignalRGBRawHIDAdapter:
         self,
         device_path: Optional[str] = None,
         led_count: int = 82,
-        min_frame_interval: float = 0.016  # ~60 FPS
+        min_frame_interval: float = 0.028  # ~35 FPS smooth pacing
     ):
         self.device_path = device_path
         self.led_count = led_count
@@ -176,6 +176,7 @@ class SignalRGBRawHIDAdapter:
                     packet.extend([0] * (PACKET_SIZE - len(packet)))
 
                 os.write(self._fd, bytes(packet[:PACKET_SIZE]))
+                time.sleep(0.0012)  # Inter-packet pacing: prevents USB FIFO overruns and LED matrix flicker
 
             self._last_send_time = now
             return True

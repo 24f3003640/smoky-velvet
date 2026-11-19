@@ -50,12 +50,10 @@ class Color:
 
     def blend_alpha(self, other: Color, alpha: float) -> Color:
         alpha = max(0.0, min(1.0, alpha))
-        # When blending gold (b=0) over purple, suppress blue aggressively to avoid muddy lavender/pink
-        b_mult = max(0.0, 1.0 - alpha * 2.0) if other.b == 0 else (1.0 - alpha)
         return Color(
             self.r * (1.0 - alpha) + other.r * alpha,
             self.g * (1.0 - alpha) + other.g * alpha,
-            self.b * b_mult + other.b * alpha,
+            self.b * (1.0 - alpha) + other.b * alpha,
         )
 
     def scale(self, factor: float) -> Color:

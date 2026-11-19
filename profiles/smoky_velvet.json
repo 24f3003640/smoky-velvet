@@ -1,13 +1,14 @@
 {
   "name": "smoky_velvet",
-  "description": "Signature Velvet profile with Midnight Purple and Liquid Antique Gold ripple.",
+  "description": "Signature Velvet profile with Deep Velvet Purple and Watercolor Amethyst Ripple.",
   "version": 1,
   "base_color_hex": "#FF00FE",
   "brightness": 1.0,
   "reactive_enabled": true,
-  "reactive_duration": 0.55,
+  "reactive_duration": 0.60,
   "reactive_max_radius": 2.6,
-  "reactive_wave_thickness": 1.1,
+  "reactive_wave_thickness": 1.0,
+  "reactive_crest_color_hex": "#FF6BF8",
   "custom_key_colors": {},
   "workspace_bindings": {},
   "app_rules": {}

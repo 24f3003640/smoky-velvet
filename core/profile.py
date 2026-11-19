@@ -25,6 +25,7 @@ class Profile:
     reactive_duration: float = 0.8
     reactive_max_radius: float = 5.0
     reactive_wave_thickness: float = 1.5
+    reactive_crest_color_hex: str = "#FF6BF8"
     custom_key_colors: Dict[str, str] = field(default_factory=dict)
     workspace_bindings: Dict[str, str] = field(default_factory=dict)
     app_rules: Dict[str, str] = field(default_factory=dict)
@@ -32,6 +33,10 @@ class Profile:
     @property
     def base_color(self) -> Color:
         return Color.from_hex(self.base_color_hex)
+
+    @property
+    def reactive_crest_color(self) -> Color:
+        return Color.from_hex(self.reactive_crest_color_hex)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -48,6 +53,7 @@ class Profile:
             reactive_duration=float(data.get("reactive_duration", 0.8)),
             reactive_max_radius=float(data.get("reactive_max_radius", 5.0)),
             reactive_wave_thickness=float(data.get("reactive_wave_thickness", 1.5)),
+            reactive_crest_color_hex=data.get("reactive_crest_color_hex", "#FF6BF8"),
             custom_key_colors=data.get("custom_key_colors", {}),
             workspace_bindings=data.get("workspace_bindings", {}),
             app_rules=data.get("app_rules", {})

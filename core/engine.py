@@ -26,7 +26,7 @@ class LightingEngine:
         layout: KeyboardLayout,
         adapter: OpenRGBDeviceAdapter,
         input_listener: Optional[InputListener] = None,
-        target_fps: float = 50.0,
+        target_fps: float = 35.0,
         enable_hyprland: bool = True
     ):
         self.layout = layout
@@ -74,6 +74,8 @@ class LightingEngine:
         self.ripple_manager.duration = profile.reactive_duration
         self.ripple_manager.max_radius = profile.reactive_max_radius
         self.ripple_manager.wave_thickness = profile.reactive_wave_thickness
+        self.ripple_manager.crest_color = profile.reactive_crest_color
+        self.ripple_manager.base_color = profile.base_color
 
         # Apply per-key overrides if any
         if profile.custom_key_colors:

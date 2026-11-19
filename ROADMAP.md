@@ -8,8 +8,8 @@
 - [x] **Milestone 4: Profile Management & CLI Controls** (Completed)
 - [x] **Milestone 5: Linux Desktop Integrations (Hyprland + Caelestia)** (Completed)
 - [x] **Milestone 7: Desktop GUI Studio (V1.0 Polish & Packaging)** (Completed)
+- [x] **Milestone 8: V1.1 Smart Profiles & Typing Heatmap** (Completed)
 - [ ] **Milestone 6: Windows Platform Compatibility** (Planned)
-- [ ] **Milestone 8: V1.1 Smart Profiles & Typing Heatmap** (Planned)
 - [ ] **Milestone 9: V1.2 Audio/Screen Reactive & V2.0 Creator Studio** (Planned)
 
 ---

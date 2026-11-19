@@ -74,6 +74,7 @@ class LightingEngine:
         self._is_running = False
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
+        self._last_heartbeat_time: float = 0.0
 
     @property
     def is_running(self) -> bool:
@@ -121,7 +122,7 @@ class LightingEngine:
     def trigger_key(self, led_index: int, timestamp: Optional[float] = None) -> None:
         """Called whenever a key is pressed to trigger reactive ripple and heatmap."""
         if self.compositor.reactive_layer.enabled:
-            logger.info(f"Triggering ripple at LED {led_index} (active ripples before: {len(self.ripple_manager.ripples)})")
+            logger.debug(f"Triggering ripple at LED {led_index} (active ripples before: {len(self.ripple_manager.ripples)})")
             self.ripple_manager.trigger(led_index, timestamp)
             if self.heatmap_manager.enabled:
                 self.heatmap_manager.trigger(led_index, timestamp)
@@ -329,8 +330,11 @@ class LightingEngine:
     def tick(self, dt: float, now: float) -> None:
         """Perform one animation update and composite."""
         self.compositor.update(dt, now)
-        frame, _ = self.compositor.render_frame()
-        self.adapter.send_frame(frame)
+        frame, is_dirty = self.compositor.render_frame()
+        # Dirty-frame diffing: only transmit to hardware if frame changed or on 2.5s keepalive heartbeat
+        if is_dirty or (now - self._last_heartbeat_time) >= 2.5:
+            self.adapter.send_frame(frame)
+            self._last_heartbeat_time = now
 
     def _render_loop(self) -> None:
         last_time = time.monotonic()

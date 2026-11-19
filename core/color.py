@@ -50,10 +50,12 @@ class Color:
 
     def blend_alpha(self, other: Color, alpha: float) -> Color:
         alpha = max(0.0, min(1.0, alpha))
+        # When blending gold (b=0) over purple, suppress blue aggressively to avoid muddy lavender/pink
+        b_mult = max(0.0, 1.0 - alpha * 2.0) if other.b == 0 else (1.0 - alpha)
         return Color(
             self.r * (1.0 - alpha) + other.r * alpha,
             self.g * (1.0 - alpha) + other.g * alpha,
-            self.b * (1.0 - alpha) + other.b * alpha,
+            self.b * b_mult + other.b * alpha,
         )
 
     def scale(self, factor: float) -> Color:
@@ -94,6 +96,12 @@ class Gradient:
 
 
 # Signature Smoky Velvet Color Palette
+# Physically calibrated for URX Core75 Smoky Black translucent casing
+SMOKY_PLUM_PURPLE   = Color(255, 0, 254) # Left section: Authentic Smoky Plum Velvet (#FF00FE)
+MOLTEN_ANTIQUE_GOLD = Color(255, 52, 0)  # Pure Molten Antique Gold (#FF3400)
+DEEP_ANTIQUE_GOLD   = Color(255, 52, 0)  # Alias for backward compatibility
+VELVET_MAGENTA      = Color(190, 0, 110) # Accent hue (#BE006E)
+
 MIDNIGHT_PURPLE = Color.from_hex("#30183F")
 
 # Liquid Antique Gold 4-stop palette

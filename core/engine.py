@@ -250,9 +250,8 @@ class LightingEngine:
     def tick(self, dt: float, now: float) -> None:
         """Perform one animation update and composite."""
         self.compositor.update(dt, now)
-        frame, is_dirty = self.compositor.render_frame()
-        if is_dirty:
-            self.adapter.send_frame(frame)
+        frame, _ = self.compositor.render_frame()
+        self.adapter.send_frame(frame)
 
     def _render_loop(self) -> None:
         last_time = time.monotonic()

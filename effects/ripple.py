@@ -6,7 +6,7 @@ from __future__ import annotations
 import math
 import time
 from typing import List, Optional, Tuple
-from core.color import Color, LIQUID_GOLD_GRADIENT
+from core.color import Color, MOLTEN_ANTIQUE_GOLD, DEEP_ANTIQUE_GOLD, VELVET_MAGENTA, LIQUID_GOLD_GRADIENT
 from core.layout import KeyboardLayout
 from effects.base import Effect
 
@@ -16,11 +16,11 @@ class SingleRipple:
         self,
         origin_led: int,
         start_time: float,
-        duration: float = 0.85,     # 850 ms
-        expansion: float = 0.55,    # 550 ms
-        fade: float = 0.30,         # 300 ms
-        max_radius: float = 5.5,    # 5.5 key distances
-        wave_thickness: float = 1.8 # 1.8 key distances
+        duration: float = 0.75,      # 750 ms
+        expansion: float = 0.55,     # 550 ms expanding
+        fade: float = 0.20,          # 200 ms fading out
+        max_radius: float = 4.2,     # 4.2 key distances (4-5 keys localized)
+        wave_thickness: float = 1.4  # 1.4 key distances
     ):
         self.origin_led = origin_led
         self.start_time = start_time
@@ -44,36 +44,37 @@ class SingleRipple:
     def calculate_led_contribution(self, distance: float) -> Optional[Tuple[Color, float]]:
         """
         Returns (Color, intensity) where intensity in [0.0, 1.0].
+        Pure Molten Antique Gold (Color(255, 52, 0)) wave radiating across 4.2 keys.
         """
         if self.age < 0 or self.age >= self.duration:
             return None
 
-        # Current wave crest radius
-        if self.age <= self.expansion:
+        # Strictly contain wave within max_radius
+        if distance > self.max_radius + 0.5:
+            return None
+
+        # Calculate current wave crest radius and fading envelope
+        if self.expansion > 0 and self.age <= self.expansion:
             current_radius = self.max_radius * (self.age / self.expansion)
-            fade_factor = 1.0
+            envelope = 1.0 - (self.age / self.duration) * 0.4
         else:
             current_radius = self.max_radius
-            fade_progress = (self.age - self.expansion) / self.fade
-            fade_factor = max(0.0, 1.0 - fade_progress)
+            fade_progress = (self.age - self.expansion) / max(0.001, self.fade)
+            envelope = max(0.0, 1.0 - fade_progress)
 
         # Distance from wave crest
-        dist_from_crest = abs(distance - current_radius)
-        if dist_from_crest > self.wave_thickness * 1.8:
+        diff = distance - current_radius
+        if abs(diff) > self.wave_thickness:
             return None
 
         # Gaussian falloff around wavefront
-        gaussian = math.exp(-(dist_from_crest * dist_from_crest) / self.two_sigma_sq)
-        intensity = gaussian * fade_factor
+        gaussian = math.exp(-(diff * diff) / self.two_sigma_sq)
+        intensity = gaussian * envelope
 
         if intensity < 0.03:
             return None
 
-        # Progress through 4-stage Liquid Gold gradient (0.0 to 1.0)
-        grad_progress = min(1.0, self.age / self.duration)
-        gold_color = LIQUID_GOLD_GRADIENT.sample(grad_progress)
-
-        return (gold_color, min(1.0, intensity))
+        return (MOLTEN_ANTIQUE_GOLD, min(1.0, intensity))
 
 
 class LiquidGoldRippleManager(Effect):
@@ -82,11 +83,11 @@ class LiquidGoldRippleManager(Effect):
     """
     def __init__(
         self,
-        duration: float = 0.85,
+        duration: float = 0.75,
         expansion: float = 0.55,
-        fade: float = 0.30,
-        max_radius: float = 5.5,
-        wave_thickness: float = 1.8,
+        fade: float = 0.20,
+        max_radius: float = 4.2,
+        wave_thickness: float = 1.4,
         max_concurrent: int = 16
     ):
         self.duration = duration

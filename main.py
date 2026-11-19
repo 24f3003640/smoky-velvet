@@ -14,10 +14,11 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from core.color import Color, MIDNIGHT_PURPLE
+from core.color import Color, MIDNIGHT_PURPLE, SMOKY_PLUM_PURPLE
 from core.layout import KeyboardLayout
 from core.engine import LightingEngine
 from hardware.adapter import OpenRGBDeviceAdapter
+from hardware.signalrgb_hid import SignalRGBRawHIDAdapter
 from input.linux_evdev import LinuxEvdevListener
 
 logging.basicConfig(
@@ -30,7 +31,9 @@ def main():
     parser = argparse.ArgumentParser(description="Smoky Velvet: Cross-Platform RGB Customization Engine")
     parser.add_argument("--demo", action="store_true", help="Run automated ripple wave demonstration")
     parser.add_argument("--brightness", type=float, default=1.0, help="Brightness level (0.0 to 1.0)")
-    parser.add_argument("--fps", type=float, default=50.0, help="Target update frequency in FPS (default: 50)")
+    parser.add_argument("--fps", type=float, default=40.0, help="Target update frequency in FPS (default: 40)")
+    parser.add_argument("--backend", choices=["rawhid", "openrgb"], default="rawhid", help="Transport backend (default: rawhid direct driver)")
+    parser.add_argument("--hidraw", type=str, default=None, help="Explicit hidraw path (e.g. /dev/hidraw1)")
     parser.add_argument("--host", type=str, default="127.0.0.1", help="OpenRGB / ColorHoster host")
     parser.add_argument("--port", type=int, default=6742, help="OpenRGB / ColorHoster port")
     parser.add_argument("--device-node", type=str, default=None, help="Explicit evdev input device path")
@@ -46,11 +49,17 @@ def main():
     logger.info("Loading URX Core75 layout geometry...")
     layout = KeyboardLayout.load_from_via_json(layout_path)
 
-    adapter = OpenRGBDeviceAdapter(
-        host=args.host,
-        port=args.port,
-        min_frame_interval=1.0 / args.fps
-    )
+    if args.backend == "rawhid":
+        adapter = SignalRGBRawHIDAdapter(
+            device_path=args.hidraw,
+            min_frame_interval=1.0 / args.fps
+        )
+    else:
+        adapter = OpenRGBDeviceAdapter(
+            host=args.host,
+            port=args.port,
+            min_frame_interval=1.0 / args.fps
+        )
 
     listener = LinuxEvdevListener(device_path=args.device_node)
 
@@ -72,16 +81,17 @@ def main():
     signal.signal(signal.SIGINT, handle_exit)
     signal.signal(signal.SIGTERM, handle_exit)
 
-    logger.info("Starting Smoky Velvet lighting engine...")
+    logger.info(f"Starting Smoky Velvet lighting engine (Backend: {args.backend})...")
     if not engine.start():
-        logger.error("Failed to start engine. Please verify ColorHoster is running on 127.0.0.1:6742.")
+        logger.error("Failed to start engine. Please verify keyboard connection or permissions on /dev/hidraw1.")
         sys.exit(1)
 
     print("\n" + "=" * 65)
     print("  SMOKY VELVET ENGINE ACTIVE 🌌✨")
-    print("  Base: Midnight Purple (#30183F)")
-    print("  Reactive Effect: Liquid Antique Gold Ripple")
+    print("  Base: Smoky Plum Velvet (#8200A0)")
+    print("  Reactive Effect: Liquid Antique Gold Ripple (4-5 key radius)")
     print(f"  Target: URX Core75 ({layout.led_count} LEDs) @ {args.fps:.0f} FPS")
+    print(f"  Transport: {args.backend.upper()} Direct Driver")
     print("=" * 65)
 
     if args.demo:

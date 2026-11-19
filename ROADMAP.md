@@ -26,10 +26,12 @@
 | **M0-6** | Verify per-key hardware lighting control via OpenRGB | M0 | **Complete** | Successfully set Midnight Purple and highlighted individual keys in Antique Gold |
 | **M1-1** | Implement robust standalone OpenRGB SDK Client / DeviceAdapter | M1 | **Complete** | Reconnect logic, clean protocol handshake, dirty-frame caching |
 | **M1-2** | Implement ColorHoster process supervisor / health watchdog | M1 | **Complete** | Systemd user unit + background service verified |
+| **M1-3** | Direct SignalRGB Raw HID Adapter (`hardware/signalrgb_hid.py`) | M1 | **Complete** | Direct `/dev/hidraw1` 9-LED packet streaming, bypassing OpenRGB with ~2ms latency |
 | **M2-1** | Core Color and Gradient library with KaTeX math models | M2 | **Complete** | Linear, sRGB, multi-stop gradient interpolation, additive/alpha blending |
 | **M2-2** | Layer Compositor (Base, Reactive, Indicator, Ambient) | M2 | **Complete** | 4-layer stack with dirty diffing, opacity, and Caps Lock override |
 | **M3-1** | Linux evdev input hook with zero keystroke persistence | M3 | **Complete** | Multi-device select loop on `/dev/input/by-id/*URX*`, converts to LED index |
 | **M3-2** | Liquid Antique Gold ripple physics engine | M3 | **Complete** | Multi-keypress overlapping ripples with 4-stop gold dissipation |
+| **M3-3** | Custom 50 FPS Water Ripple Wave & Physical Calibration | M3 | **Complete** | Isotropic circular wave, 4.2-key localized radius, Smoky Plum Velvet base + Antique Gold crest |
 | **M4-1** | Portable Profile Manager (JSON profiles) | M4 | **Complete** | Shipped with 5 default profiles (`smoky_velvet`, `coding`, `study`, `gaming`, `night`) |
 | **M4-2** | Fast UNIX Socket IPC Server & `smoky-velvet` CLI | M4 | **Complete** | Instant CLI commands for profile, brightness, and status control |
 | **M5-1** | Hyprland IPC adapter for active window / workspace sync | M5 | **Complete** | Auto-switches profile on workspace change (e.g. WS 1 ➔ coding, WS 4 ➔ gaming) |

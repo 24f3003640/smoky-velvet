@@ -2,6 +2,18 @@
 
 All notable changes to Smoky Velvet will be documented in this file.
 
+## [0.3.0] - 2026-11-19 (Native SignalRGB Raw HID Engine & Custom Water Ripple Wave)
+### Added
+- **Direct SignalRGB Raw HID Driver (`hardware/signalrgb_hid.py`)**: Direct kernel-level Raw HID streaming over `/dev/hidraw1` using the native SignalRGB protocol extension (`0x25` enable, `0x24` stream in 9-LED packets, `0x26` disable). Eliminates all external server/SDK dependencies (ColorHoster/OpenRGB) with ~2ms frame delivery.
+- **Dynamic Device Auto-Discovery**: Automatically enumerates `/sys/class/hidraw` to locate URX Core75 interface `01` (`0003:36B0:3130`) with graceful fallback.
+- **Physical Optical Color Calibration**:
+  - Base: Smoky Plum Velvet (`#8200A0` / RGB `[130, 0, 160]` / `Hue: 215, Sat: 255`).
+  - Ripple Crest: Deep Antique Gold (`#FF2400` / RGB `[255, 36, 0]` / `Hue: 6, Sat: 255`).
+  - Wave Trailing Wake: Velvet Magenta (`#BE006E` / RGB `[190, 0, 110]`).
+- **Custom Mathematical Water Ripple Physics (`effects/ripple.py`)**: Replaced firmware built-ins with a bespoke isotropic circular wave engine running at 50 FPS. Radiates outward from key $(x_0, y_0)$ with a tight 4.2-key localized radius, Gaussian wavefront falloff, and smooth alpha blending into the resting purple pond.
+- **Unit Test Suite Expansion**: Added `tests/test_signalrgb_hid.py`, bringing the automated test suite to 23 tests passing 100%.
+- **Live User Systemd Daemon**: Configured and enabled `smoky-velvet.service` as an auto-starting user service.
+
 ## [0.2.0] - 2026-11-19 (Milestones 1–5: Core Engine, Ripple, Profiles, Hyprland & Caelestia)
 ### Added
 - **Device Adapter (`hardware/adapter.py`)**: Resilient OpenRGB SDK bridge client with auto-reconnection and dirty-frame buffering.

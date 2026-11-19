@@ -24,6 +24,7 @@ class LinuxEvdevListener(InputListener):
         self._threads: List[threading.Thread] = []
         self._stop_event = threading.Event()
         self._is_running = False
+        self._last_abs_vol: Optional[int] = None
 
     @property
     def is_running(self) -> bool:
@@ -34,9 +35,9 @@ class LinuxEvdevListener(InputListener):
             return [self.device_path]
 
         paths: List[str] = []
-        # Check by-id symlinks for all URX event devices except mouse and joystick
+        # Check by-id symlinks for all URX event devices (excluding only joystick)
         matches = sorted(glob.glob("/dev/input/by-id/*URX*event*"))
-        by_id_matches = [p for p in matches if "mouse" not in p and "joystick" not in p]
+        by_id_matches = [p for p in matches if "joystick" not in p]
         if by_id_matches:
             paths.extend(by_id_matches)
 
@@ -126,23 +127,36 @@ class LinuxEvdevListener(InputListener):
                     rel_codes = [evdev.ecodes.REL_HWHEEL, evdev.ecodes.REL_WHEEL]
                     if hasattr(evdev.ecodes, 'REL_HWHEEL_HI_RES'):
                         rel_codes.append(evdev.ecodes.REL_HWHEEL_HI_RES)
+                    if hasattr(evdev.ecodes, 'REL_WHEEL_HI_RES'):
+                        rel_codes.append(evdev.ecodes.REL_WHEEL_HI_RES)
                     if event.code in rel_codes:
                         action = "volume_up" if event.value > 0 else "volume_down"
                         if self._knob_callback is not None:
                             self._knob_callback(action, now)
 
-                # 2. Key events (EV_KEY)
+                # 2. Absolute volume axis (EV_ABS)
+                elif event.type == evdev.ecodes.EV_ABS:
+                    if event.code == evdev.ecodes.ABS_VOLUME:
+                        if self._last_abs_vol is not None:
+                            diff = event.value - self._last_abs_vol
+                            if diff != 0:
+                                action = "volume_up" if diff > 0 else "volume_down"
+                                if self._knob_callback is not None:
+                                    self._knob_callback(action, now)
+                        self._last_abs_vol = event.value
+
+                # 3. Key events (EV_KEY)
                 elif event.type == evdev.ecodes.EV_KEY:
                     key_code = event.code
 
                     # Knob Volume Up
                     if key_code == evdev.ecodes.KEY_VOLUMEUP:
-                        if event.value == 1 and self._knob_callback is not None:
+                        if event.value in (1, 2) and self._knob_callback is not None:
                             self._knob_callback("volume_up", now)
 
                     # Knob Volume Down
                     elif key_code == evdev.ecodes.KEY_VOLUMEDOWN:
-                        if event.value == 1 and self._knob_callback is not None:
+                        if event.value in (1, 2) and self._knob_callback is not None:
                             self._knob_callback("volume_down", now)
 
                     # Knob Mute / Mode Switch Click

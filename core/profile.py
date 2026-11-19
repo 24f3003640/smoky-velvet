@@ -135,6 +135,8 @@ class ProfileManager:
                 logger.error(f"Error loading profile {p.name}: {e}")
 
     def get_profile(self, name: str) -> Optional[Profile]:
+        if name not in self.profiles:
+            self.load_all()
         return self.profiles.get(name)
 
     def get_active_profile(self) -> Profile:

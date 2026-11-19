@@ -157,6 +157,7 @@ class LightingEngine:
             }
 
         elif action == "list_profiles":
+            self.profile_manager.load_all()
             return {
                 "status": "ok",
                 "profiles": list(self.profile_manager.profiles.keys()),

@@ -50,7 +50,7 @@ def main():
         import subprocess
         gui_path = Path(__file__).parent / "gui.py"
         python_bin = Path(__file__).parent / ".venv" / "bin" / "python3"
-        subprocess.Popen([str(python_bin), str(gui_path)])
+        subprocess.Popen([str(python_bin), str(gui_path)], start_new_session=True)
         print("🌌 Launched Smoky Velvet Desktop Studio GUI!")
         return
 

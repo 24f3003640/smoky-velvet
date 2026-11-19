@@ -1,12 +1,11 @@
 """
 Linux evdev input listener for URX Core75.
-Captures keydown events across all URX input endpoints concurrently.
+Captures keydown events across all URX input endpoints concurrently using native read_loop.
 PRIVACY GUARANTEE: Zero text logging or buffering. Only transmits physical LED index and timestamp.
 """
 from __future__ import annotations
 import glob
 import logging
-import select
 import threading
 import time
 from pathlib import Path
@@ -22,7 +21,7 @@ class LinuxEvdevListener(InputListener):
         super().__init__()
         self.device_path = device_path
         self._devices: List[evdev.InputDevice] = []
-        self._thread: Optional[threading.Thread] = None
+        self._threads: List[threading.Thread] = []
         self._stop_event = threading.Event()
         self._is_running = False
 
@@ -79,12 +78,23 @@ class LinuxEvdevListener(InputListener):
 
         self._stop_event.clear()
         self._is_running = True
-        self._thread = threading.Thread(target=self._multi_read_loop, daemon=True, name="EvdevListener")
-        self._thread.start()
+        self._threads.clear()
+
+        # Dedicated reader thread per input endpoint
+        for dev in self._devices:
+            t = threading.Thread(
+                target=self._read_device_loop,
+                args=(dev,),
+                daemon=True,
+                name=f"EvdevReader-{dev.path.split('/')[-1]}"
+            )
+            self._threads.append(t)
+            t.start()
 
     def stop(self) -> None:
         self._stop_event.set()
         self._is_running = False
+
         for dev in self._devices:
             try:
                 dev.close()
@@ -92,31 +102,34 @@ class LinuxEvdevListener(InputListener):
                 pass
         self._devices.clear()
 
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=1.0)
-            self._thread = None
+        for t in self._threads:
+            if t.is_alive():
+                t.join(timeout=0.5)
+        self._threads.clear()
 
-    def _multi_read_loop(self) -> None:
-        while not self._stop_event.is_set():
-            try:
-                # Select with timeout so we can periodically check stop_event
-                r, _, _ = select.select(self._devices, [], [], 0.5)
-                for dev in r:
-                    for event in dev.read():
-                        if event.type == evdev.ecodes.EV_KEY and event.value == 1:
-                            key_code = event.code
-                            try:
-                                key_name = evdev.ecodes.KEY[key_code]
-                                if isinstance(key_name, list):
-                                    key_name = key_name[0]
-                            except (KeyError, IndexError):
-                                continue
+    def _read_device_loop(self, dev: evdev.InputDevice) -> None:
+        logger.info(f"Started evdev read loop for {dev.path}")
+        try:
+            for event in dev.read_loop():
+                if self._stop_event.is_set():
+                    break
 
-                            led_idx = EVDEV_KEY_TO_LED.get(key_name)
-                            if led_idx is not None and self._callback is not None:
-                                self._callback(led_idx, time.monotonic())
-            except Exception as e:
-                if not self._stop_event.is_set():
-                    logger.error(f"Evdev multi-read loop error: {e}")
-                break
-        self._is_running = False
+                # EV_KEY key-down is value 1
+                if event.type == evdev.ecodes.EV_KEY and event.value == 1:
+                    key_code = event.code
+                    try:
+                        key_name = evdev.ecodes.KEY[key_code]
+                        if isinstance(key_name, list):
+                            key_name = key_name[0]
+                    except (KeyError, IndexError):
+                        continue
+
+                    led_idx = EVDEV_KEY_TO_LED.get(key_name)
+                    if led_idx is not None and self._callback is not None:
+                        logger.info(f"Physical keypress detected: {key_name} -> LED {led_idx}")
+                        self._callback(led_idx, time.monotonic())
+        except Exception as e:
+            if not self._stop_event.is_set():
+                logger.error(f"Error in evdev read loop for {dev.path}: {e}")
+        finally:
+            logger.info(f"Evdev read loop terminated for {dev.path}")

@@ -41,7 +41,7 @@ class TestRipple(unittest.TestCase):
 
     def test_ripple_manager(self):
         mgr = LiquidGoldRippleManager()
-        self.assertTrue(mgr.is_finished())
+        self.assertFalse(mgr.is_finished()) # Persistent manager
 
         mgr.trigger(75, timestamp=100.0)
         self.assertFalse(mgr.is_finished())

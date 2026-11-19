@@ -101,7 +101,7 @@ class OpenRGBDeviceAdapter:
         try:
             # Convert internal Color objects to OpenRGB RGBColor
             rgb_colors = [RGBColor(c.r, c.g, c.b) for c in colors]
-            self.device.set_colors(rgb_colors)
+            self.device.set_colors(rgb_colors, fast=True)
             self._last_send_time = now
             return True
         except Exception as e:

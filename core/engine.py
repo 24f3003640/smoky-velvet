@@ -103,6 +103,7 @@ class LightingEngine:
     def trigger_key(self, led_index: int, timestamp: Optional[float] = None) -> None:
         """Called whenever a key is pressed to trigger reactive ripple."""
         if self.compositor.reactive_layer.enabled:
+            logger.info(f"Triggering ripple at LED {led_index} (active ripples before: {len(self.ripple_manager.ripples)})")
             self.ripple_manager.trigger(led_index, timestamp)
 
     def set_caps_lock(self, is_active: bool, color: Optional[Color] = None) -> None:

@@ -140,4 +140,5 @@ class LiquidGoldRippleManager(Effect):
                         buffer[led_idx] = (blended_col, new_alpha)
 
     def is_finished(self) -> bool:
-        return len(self.ripples) == 0
+        # The manager persists across the engine lifecycle
+        return False

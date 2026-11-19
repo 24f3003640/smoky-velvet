@@ -1,6 +1,6 @@
 {
   "name": "smoky_velvet",
-  "description": "Signature Velvet profile with Deep Velvet Purple and Warm Rose Gold Watercolor Ripple.",
+  "description": "Signature Smoky Velvet: Deep Velvet Purple pond with Electric Sapphire fluid ripple.",
   "version": 1,
   "base_color_hex": "#FF00FE",
   "brightness": 1.0,
@@ -8,7 +8,7 @@
   "reactive_duration": 0.72,
   "reactive_max_radius": 2.6,
   "reactive_wave_thickness": 1.0,
-  "reactive_crest_color_hex": "#FF5F23",
+  "reactive_crest_color_hex": "#1E90FF",
   "custom_key_colors": {},
   "workspace_bindings": {},
   "app_rules": {}

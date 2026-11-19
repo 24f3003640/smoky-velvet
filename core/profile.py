@@ -70,6 +70,14 @@ class ProfileManager:
         self.profiles_dir.mkdir(parents=True, exist_ok=True)
         self.profiles: Dict[str, Profile] = {}
         self.active_profile_name: str = "smoky_velvet"
+        active_file = self.profiles_dir / ".active_profile"
+        if active_file.exists():
+            try:
+                saved = active_file.read_text(encoding="utf-8").strip()
+                if saved:
+                    self.active_profile_name = saved
+            except Exception:
+                pass
         self._ensure_default_profiles()
         self.load_all()
 
@@ -151,5 +159,9 @@ class ProfileManager:
     def set_active(self, name: str) -> bool:
         if name in self.profiles:
             self.active_profile_name = name
+            try:
+                (self.profiles_dir / ".active_profile").write_text(name, encoding="utf-8")
+            except Exception:
+                pass
             return True
         return False

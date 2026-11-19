@@ -86,7 +86,7 @@ class LightingEngine:
                 except Exception:
                     pass
 
-        self.profile_manager.active_profile_name = profile.name
+        self.profile_manager.set_active(profile.name)
         logger.info(f"Applied profile: '{profile.name}' (Base: {profile.base_color_hex}, Brightness: {profile.brightness})")
 
     def switch_profile(self, name: str) -> bool:

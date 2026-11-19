@@ -44,6 +44,12 @@ def main():
     # gui
     subparsers.add_parser("gui", help="Launch the Smoky Velvet Desktop Studio GUI")
 
+    # heatmap
+    subparsers.add_parser("heatmap", help="Toggle typing heatmap mode on/off")
+
+    # telemetry
+    subparsers.add_parser("telemetry", help="Toggle hardware telemetry F-row meter on/off")
+
     args = parser.parse_args()
 
     if args.command == "gui":
@@ -66,7 +72,27 @@ def main():
         print(f"  • Base Color:      {data.get('base_color_hex')}")
         print(f"  • Brightness:      {int(data.get('brightness', 1.0) * 100)}%")
         print(f"  • Reactive Ripple: {'Enabled' if data.get('reactive_enabled') else 'Disabled'}")
+        print(f"  • Typing Heatmap:  {'Active' if data.get('heatmap_enabled') else 'Disabled'}")
+        print(f"  • System Telemetry:{'Active' if data.get('telemetry_enabled') else 'Disabled'}")
         print(f"  • Frame Rate:      {data.get('fps', 50):.0f} FPS")
+        return
+
+    if args.command == "heatmap":
+        resp = IpcClient.send_command({"action": "toggle_heatmap"})
+        if resp.get("status") == "ok":
+            state = "Enabled" if resp.get("heatmap_enabled") else "Disabled"
+            print(f"🔥 Typing Heatmap: {state}")
+        else:
+            print(f"❌ Error: {resp.get('message')}")
+        return
+
+    if args.command == "telemetry":
+        resp = IpcClient.send_command({"action": "toggle_telemetry"})
+        if resp.get("status") == "ok":
+            state = "Enabled" if resp.get("telemetry_enabled") else "Disabled"
+            print(f"📊 System Telemetry Gauge: {state}")
+        else:
+            print(f"❌ Error: {resp.get('message')}")
         return
 
     if args.command == "profile":

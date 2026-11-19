@@ -14,6 +14,8 @@ from core.ipc import IpcServer
 from core.layout import KeyboardLayout
 from core.profile import Profile, ProfileManager
 from effects.ripple import LiquidGoldRippleManager
+from effects.heatmap import TypingHeatmapManager
+from effects.telemetry import TelemetryRowEffect
 from hardware.adapter import OpenRGBDeviceAdapter
 from input.listener import InputListener
 from integrations.hyprland import HyprlandEventListener
@@ -40,6 +42,14 @@ class LightingEngine:
 
         self.ripple_manager = LiquidGoldRippleManager()
         self.compositor.reactive_layer.add_effect(self.ripple_manager)
+
+        self.heatmap_manager = TypingHeatmapManager(led_count=self.layout.led_count)
+        self.heatmap_manager.enabled = False
+        self.compositor.reactive_layer.add_effect(self.heatmap_manager)
+
+        self.telemetry_effect = TelemetryRowEffect()
+        self.telemetry_effect.enabled = False
+        self.compositor.reactive_layer.add_effect(self.telemetry_effect)
 
         # Apply initial active profile
         initial_profile = self.profile_manager.get_active_profile()
@@ -76,6 +86,8 @@ class LightingEngine:
         self.ripple_manager.wave_thickness = profile.reactive_wave_thickness
         self.ripple_manager.crest_color = profile.reactive_crest_color
         self.ripple_manager.base_color = profile.base_color
+        self.heatmap_manager.enabled = profile.heatmap_enabled
+        self.telemetry_effect.enabled = profile.telemetry_enabled
 
         # Apply per-key overrides if any
         if profile.custom_key_colors:
@@ -103,10 +115,12 @@ class LightingEngine:
         self.compositor.base_layer.set_all(color)
 
     def trigger_key(self, led_index: int, timestamp: Optional[float] = None) -> None:
-        """Called whenever a key is pressed to trigger reactive ripple."""
+        """Called whenever a key is pressed to trigger reactive ripple and heatmap."""
         if self.compositor.reactive_layer.enabled:
             logger.info(f"Triggering ripple at LED {led_index} (active ripples before: {len(self.ripple_manager.ripples)})")
             self.ripple_manager.trigger(led_index, timestamp)
+            if self.heatmap_manager.enabled:
+                self.heatmap_manager.trigger(led_index, timestamp)
 
     def set_caps_lock(self, is_active: bool, color: Optional[Color] = None) -> None:
         """Indicator for Caps Lock (LED index 44)."""
@@ -152,6 +166,8 @@ class LightingEngine:
                     "base_color_hex": prof.base_color_hex,
                     "brightness": self.compositor.global_brightness,
                     "reactive_enabled": self.compositor.reactive_layer.enabled,
+                    "heatmap_enabled": self.heatmap_manager.enabled,
+                    "telemetry_enabled": self.telemetry_effect.enabled,
                     "fps": self.target_fps
                 }
             }
@@ -178,6 +194,14 @@ class LightingEngine:
         elif action == "toggle_reactive":
             self.compositor.reactive_layer.enabled = not self.compositor.reactive_layer.enabled
             return {"status": "ok", "reactive_enabled": self.compositor.reactive_layer.enabled}
+
+        elif action == "toggle_heatmap":
+            self.heatmap_manager.enabled = not self.heatmap_manager.enabled
+            return {"status": "ok", "heatmap_enabled": self.heatmap_manager.enabled}
+
+        elif action == "toggle_telemetry":
+            self.telemetry_effect.enabled = not self.telemetry_effect.enabled
+            return {"status": "ok", "telemetry_enabled": self.telemetry_effect.enabled}
 
         elif action == "trigger_ripple":
             led = int(req.get("led", 75))

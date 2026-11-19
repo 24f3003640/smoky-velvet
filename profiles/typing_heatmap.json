@@ -1,0 +1,17 @@
+{
+  "name": "typing_heatmap",
+  "description": "Dynamic Thermodynamic Typing Heatmap: Active keys heat up through Sapphire, Cyan, Coral, and White with exponential cooling.",
+  "version": 1,
+  "base_color_hex": "#FF00FE",
+  "brightness": 1.0,
+  "reactive_enabled": true,
+  "reactive_duration": 1.20,
+  "reactive_max_radius": 3.0,
+  "reactive_wave_thickness": 1.2,
+  "reactive_crest_color_hex": "#1E90FF",
+  "heatmap_enabled": true,
+  "telemetry_enabled": false,
+  "custom_key_colors": {},
+  "workspace_bindings": {},
+  "app_rules": {}
+}

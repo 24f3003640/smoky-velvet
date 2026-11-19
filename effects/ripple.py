@@ -16,11 +16,11 @@ class SingleRipple:
         self,
         origin_led: int,
         start_time: float,
-        duration: float = 0.75,      # 750 ms
-        expansion: float = 0.55,     # 550 ms expanding
-        fade: float = 0.20,          # 200 ms fading out
-        max_radius: float = 4.2,     # 4.2 key distances (4-5 keys localized)
-        wave_thickness: float = 1.4  # 1.4 key distances
+        duration: float = 0.55,      # 550 ms
+        expansion: float = 0.40,     # 400 ms expanding
+        fade: float = 0.15,          # 150 ms fading out
+        max_radius: float = 2.6,     # 2.6 key distances (2-3 keys localized)
+        wave_thickness: float = 1.1  # 1.1 key distances
     ):
         self.origin_led = origin_led
         self.start_time = start_time
@@ -83,11 +83,11 @@ class LiquidGoldRippleManager(Effect):
     """
     def __init__(
         self,
-        duration: float = 0.75,
-        expansion: float = 0.55,
-        fade: float = 0.20,
-        max_radius: float = 4.2,
-        wave_thickness: float = 1.4,
+        duration: float = 0.55,
+        expansion: float = 0.40,
+        fade: float = 0.15,
+        max_radius: float = 2.6,
+        wave_thickness: float = 1.1,
         max_concurrent: int = 16
     ):
         self.duration = duration

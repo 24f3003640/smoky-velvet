@@ -5,9 +5,9 @@
   "base_color_hex": "#FF00FE",
   "brightness": 1.0,
   "reactive_enabled": true,
-  "reactive_duration": 0.75,
-  "reactive_max_radius": 4.2,
-  "reactive_wave_thickness": 1.4,
+  "reactive_duration": 0.55,
+  "reactive_max_radius": 2.6,
+  "reactive_wave_thickness": 1.1,
   "custom_key_colors": {},
   "workspace_bindings": {},
   "app_rules": {}

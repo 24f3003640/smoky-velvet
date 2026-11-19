@@ -116,25 +116,21 @@ class LightingEngine:
 
     def _on_workspace_change(self, workspace_name: str) -> None:
         logger.debug(f"Hyprland workspace changed to: {workspace_name}")
-        # Default mapping example: workspace 4 -> gaming, workspace 1 -> coding, etc.
-        mappings = {
-            "1": "coding",
-            "4": "gaming",
-            "5": "study"
-        }
-        target_profile = mappings.get(workspace_name)
-        if target_profile and target_profile != self.profile_manager.active_profile_name:
-            self.switch_profile(target_profile)
+        prof = self.profile_manager.get_active_profile()
+        if prof and prof.workspace_bindings and workspace_name in prof.workspace_bindings:
+            target = prof.workspace_bindings[workspace_name]
+            if target != self.profile_manager.active_profile_name:
+                self.switch_profile(target)
 
     def _on_active_window(self, win_class: str, win_title: str) -> None:
         logger.debug(f"Hyprland active window: {win_class}")
-        class_lower = win_class.lower()
-        if "steam" in class_lower or "game" in class_lower:
-            if self.profile_manager.active_profile_name != "gaming":
-                self.switch_profile("gaming")
-        elif "code" in class_lower or "zed" in class_lower or "cursor" in class_lower:
-            if self.profile_manager.active_profile_name != "coding":
-                self.switch_profile("coding")
+        prof = self.profile_manager.get_active_profile()
+        if prof and prof.app_rules:
+            for pattern, target in prof.app_rules.items():
+                if pattern.lower() in win_class.lower():
+                    if target != self.profile_manager.active_profile_name:
+                        self.switch_profile(target)
+                    break
 
     def _on_fullscreen(self, is_fullscreen: bool) -> None:
         logger.debug(f"Hyprland fullscreen state: {is_fullscreen}")

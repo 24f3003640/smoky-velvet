@@ -56,11 +56,13 @@ def main():
     vol_parser.add_argument("--down", type=int, nargs="?", const=5, help="Decrease volume (default: 5%%)")
     vol_parser.add_argument("--mute", action="store_true", help="Toggle mute")
 
-    # hardware-mode / pause
+    # hardware-mode / pause / off
     subparsers.add_parser("hardware-mode", help="Release keyboard to onboard firmware RGB presets (zero flicker)")
+    subparsers.add_parser("off", help="Alias: Release keyboard to onboard firmware RGB presets")
 
-    # software-mode / resume
+    # software-mode / resume / on
     subparsers.add_parser("software-mode", help="Re-engage Smoky Velvet fluid lighting engine")
+    subparsers.add_parser("on", help="Alias: Instantly jump back to Smoky Velvet fluid lighting")
 
     args = parser.parse_args()
 
@@ -72,17 +74,17 @@ def main():
         print("🌌 Launched Smoky Velvet Desktop Studio GUI!")
         return
 
-    if args.command == "hardware-mode":
+    if args.command in ("hardware-mode", "off"):
         resp = IpcClient.send_command({"action": "pause"})
         if resp.get("status") == "ok":
             print("🎛️ Switched to Hardware Preset Mode!")
             print("   You can now cycle onboard keyboard RGB modes (Fn combos) with ZERO flicker.")
-            print("   Run 'smoky-velvet software-mode' whenever you want Smoky Velvet back.")
+            print("   Run 'smoky-velvet on' whenever you want Smoky Velvet back.")
         else:
             print(f"❌ Error: {resp.get('message')}")
         return
 
-    if args.command == "software-mode":
+    if args.command in ("software-mode", "on"):
         resp = IpcClient.send_command({"action": "resume"})
         if resp.get("status") == "ok":
             print("✨ Re-engaged Smoky Velvet Lighting Engine! Fluid ripples active.")

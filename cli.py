@@ -41,7 +41,18 @@ def main():
     ripple_parser = subparsers.add_parser("test-ripple", help="Trigger a test ripple on keyboard")
     ripple_parser.add_argument("--key", type=int, default=75, help="LED index to trigger (default: 75 / Space)")
 
+    # gui
+    subparsers.add_parser("gui", help="Launch the Smoky Velvet Desktop Studio GUI")
+
     args = parser.parse_args()
+
+    if args.command == "gui":
+        import subprocess
+        gui_path = Path(__file__).parent / "gui.py"
+        python_bin = Path(__file__).parent / ".venv" / "bin" / "python3"
+        subprocess.Popen([str(python_bin), str(gui_path)])
+        print("🌌 Launched Smoky Velvet Desktop Studio GUI!")
+        return
 
     if not args.command or args.command == "status":
         resp = IpcClient.send_command({"action": "status"})

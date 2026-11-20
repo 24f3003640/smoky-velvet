@@ -34,8 +34,11 @@ def main():
     # toggle-ripple
     subparsers.add_parser("toggle-ripple", help="Toggle reactive ripple effect on or off")
 
+    # day
+    subparsers.add_parser("day", help="Quickly switch to Daytime Mode (Stealth Crimson)")
+
     # night
-    subparsers.add_parser("night", help="Quickly switch to Night Mode")
+    subparsers.add_parser("night", help="Quickly switch to Nighttime Mode (Electric Sapphire)")
 
     # test-ripple
     ripple_parser = subparsers.add_parser("test-ripple", help="Trigger a test ripple on keyboard")
@@ -195,12 +198,24 @@ def main():
             print(f"❌ Error: {resp.get('message')}")
         return
 
-    if args.command == "night":
-        resp = IpcClient.send_command({"action": "set_profile", "name": "night"})
+    if args.command == "day":
+        resp = IpcClient.send_command({"action": "set_profile", "name": "stealth_crimson"})
         if resp.get("status") == "ok":
-            print("🌙 Night Mode activated (low intensity velvet)")
+            print("☀️ Daytime Mode activated: Stealth Crimson (#D60029 Ember + Pure Solar White ripples)")
         else:
             print(f"❌ Error: {resp.get('message')}")
+        return
+
+    if args.command == "night":
+        resp = IpcClient.send_command({"action": "set_profile", "name": "electric_sapphire"})
+        if resp.get("status") == "ok":
+            print("🌙 Nighttime Mode activated: Electric Sapphire (Velvet Purple + Electric Sapphire ripples)")
+        else:
+            resp = IpcClient.send_command({"action": "set_profile", "name": "night"})
+            if resp.get("status") == "ok":
+                print("🌙 Night Mode activated (low intensity velvet)")
+            else:
+                print(f"❌ Error: {resp.get('message')}")
         return
 
     if args.command == "test-ripple":

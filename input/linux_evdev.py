@@ -26,6 +26,19 @@ class LinuxEvdevListener(InputListener):
         self._stop_event = threading.Event()
         self._is_running = False
         self._last_abs_vol: Optional[int] = None
+        self._active_modifiers = set()
+        self._modifier_lock = threading.Lock()
+
+    def _resolve_knob_turn(self, direction: str) -> str:
+        """Resolve knob turn action based on active modifier keys."""
+        with self._modifier_lock:
+            if 'super' in self._active_modifiers:
+                return "workspace_next" if direction == "up" else "workspace_prev"
+            elif 'ctrl' in self._active_modifiers or 'alt' in self._active_modifiers:
+                return "media_next" if direction == "up" else "media_prev"
+            elif 'shift' in self._active_modifiers:
+                return "led_brightness_up" if direction == "up" else "led_brightness_down"
+            return "volume_up" if direction == "up" else "volume_down"
 
     @property
     def is_running(self) -> bool:
@@ -161,7 +174,8 @@ class LinuxEvdevListener(InputListener):
                     if hasattr(evdev.ecodes, 'REL_WHEEL_HI_RES'):
                         rel_codes.append(evdev.ecodes.REL_WHEEL_HI_RES)
                     if event.code in rel_codes:
-                        action = "volume_up" if event.value > 0 else "volume_down"
+                        direction = "up" if event.value > 0 else "down"
+                        action = self._resolve_knob_turn(direction)
                         if self._knob_callback is not None:
                             self._knob_callback(action, now)
 
@@ -171,7 +185,8 @@ class LinuxEvdevListener(InputListener):
                         if self._last_abs_vol is not None:
                             diff = event.value - self._last_abs_vol
                             if diff != 0:
-                                action = "volume_up" if diff > 0 else "volume_down"
+                                direction = "up" if diff > 0 else "down"
+                                action = self._resolve_knob_turn(direction)
                                 if self._knob_callback is not None:
                                     self._knob_callback(action, now)
                         self._last_abs_vol = event.value
@@ -180,22 +195,48 @@ class LinuxEvdevListener(InputListener):
                 elif event.type == evdev.ecodes.EV_KEY:
                     key_code = event.code
 
+                    # Track active modifiers
+                    mod_map = {
+                        evdev.ecodes.KEY_LEFTMETA: 'super',
+                        evdev.ecodes.KEY_RIGHTMETA: 'super',
+                        evdev.ecodes.KEY_LEFTCTRL: 'ctrl',
+                        evdev.ecodes.KEY_RIGHTCTRL: 'ctrl',
+                        evdev.ecodes.KEY_LEFTALT: 'alt',
+                        evdev.ecodes.KEY_RIGHTALT: 'alt',
+                        evdev.ecodes.KEY_LEFTSHIFT: 'shift',
+                        evdev.ecodes.KEY_RIGHTSHIFT: 'shift',
+                    }
+                    if key_code in mod_map:
+                        mod = mod_map[key_code]
+                        with self._modifier_lock:
+                            if event.value in (1, 2):
+                                self._active_modifiers.add(mod)
+                            elif event.value == 0:
+                                self._active_modifiers.discard(mod)
+
                     # Knob Volume Up
                     if key_code == evdev.ecodes.KEY_VOLUMEUP:
                         if event.value in (1, 2) and self._knob_callback is not None:
-                            self._knob_callback("volume_up", now)
+                            action = self._resolve_knob_turn("up")
+                            self._knob_callback(action, now)
 
                     # Knob Volume Down
                     elif key_code == evdev.ecodes.KEY_VOLUMEDOWN:
                         if event.value in (1, 2) and self._knob_callback is not None:
-                            self._knob_callback("volume_down", now)
+                            action = self._resolve_knob_turn("down")
+                            self._knob_callback(action, now)
 
                     # Knob Mute / Mode Switch Click
                     elif key_code == evdev.ecodes.KEY_MUTE:
                         if event.value == 1:
                             mute_press_time = now
                         elif event.value == 0:
-                            if mute_press_time is not None:
+                            with self._modifier_lock:
+                                has_ctrl_or_alt = ('ctrl' in self._active_modifiers or 'alt' in self._active_modifiers)
+                            if has_ctrl_or_alt:
+                                if self._knob_callback is not None:
+                                    self._knob_callback("media_play_pause", now)
+                            elif mute_press_time is not None:
                                 duration = now - mute_press_time
                                 mute_press_time = None
                                 if duration >= 0.6:

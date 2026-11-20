@@ -5,6 +5,7 @@ Hyprland IPC events, and hardware frame delivery.
 """
 from __future__ import annotations
 import logging
+import subprocess
 import threading
 import time
 from typing import Any, Dict, Optional
@@ -17,6 +18,11 @@ from effects.ripple import LiquidGoldRippleManager
 from effects.heatmap import TypingHeatmapManager
 from effects.telemetry import TelemetryRowEffect
 from effects.volume_gauge import VolumeGaugeEffect
+from effects.wpm import WpmGaugeEffect
+from effects.pomodoro import PomodoroTimerEffect
+from effects.breathing import AmbientBreathingEffect
+from effects.audio_pulse import AudioPulseEffect
+from integrations.audio_pulse import AudioEnergyMonitor
 from hardware.adapter import OpenRGBDeviceAdapter
 from input.listener import InputListener
 from integrations.hyprland import HyprlandEventListener
@@ -54,6 +60,23 @@ class LightingEngine:
 
         self.volume_gauge = VolumeGaugeEffect()
         self.compositor.reactive_layer.add_effect(self.volume_gauge)
+
+        self.wpm_gauge = WpmGaugeEffect()
+        self.compositor.reactive_layer.add_effect(self.wpm_gauge)
+
+        self.pomodoro = PomodoroTimerEffect()
+        self.compositor.reactive_layer.add_effect(self.pomodoro)
+
+        self.breathing = AmbientBreathingEffect()
+        self.compositor.reactive_layer.add_effect(self.breathing)
+
+        self.audio_pulse = AudioPulseEffect()
+        self.compositor.reactive_layer.add_effect(self.audio_pulse)
+        self.audio_monitor = AudioEnergyMonitor(self.audio_pulse.trigger_beat)
+
+        self.auto_profile_enabled = True
+        self.is_locked = False
+        self._normal_brightness = self.compositor.global_brightness
 
         # Apply initial active profile
         initial_profile = self.profile_manager.get_active_profile()
@@ -119,8 +142,28 @@ class LightingEngine:
     def set_base_color(self, color: Color) -> None:
         self.compositor.base_layer.set_all(color)
 
+    def set_locked(self, locked: bool) -> None:
+        """Toggle lockscreen ambient breathing state."""
+        if self.is_locked == locked:
+            return
+        self.is_locked = locked
+        if locked:
+            logger.info("Lockscreen / idle mode activated: deep breathing ember engaged.")
+            self._normal_brightness = self.compositor.global_brightness
+            self.breathing.enabled = True
+            self.compositor.set_brightness(0.12)
+        else:
+            logger.info("Lockscreen / idle mode deactivated: restoring daylight profile.")
+            self.breathing.enabled = False
+            self.compositor.set_brightness(self._normal_brightness)
+
     def trigger_key(self, led_index: int, timestamp: Optional[float] = None) -> None:
-        """Called whenever a key is pressed to trigger reactive ripple and heatmap."""
+        """Called whenever a key is pressed to trigger reactive ripple, heatmap, and WPM."""
+        if self.is_locked:
+            self.set_locked(False)
+
+        self.wpm_gauge.register_keystroke(timestamp)
+
         if self.compositor.reactive_layer.enabled:
             logger.debug(f"Triggering ripple at LED {led_index} (active ripples before: {len(self.ripple_manager.ripples)})")
             self.ripple_manager.trigger(led_index, timestamp)
@@ -135,14 +178,47 @@ class LightingEngine:
         else:
             self.compositor.indicator_layer.clear_indicator(44)
 
+    def _dispatch_mpris(self, method: str) -> None:
+        def _exec():
+            try:
+                out = subprocess.check_output(
+                    ['dbus-send', '--session', '--dest=org.freedesktop.DBus', '--type=method_call', '--print-reply', '/org/freedesktop/DBus', 'org.freedesktop.DBus.ListNames'],
+                    text=True, stderr=subprocess.DEVNULL
+                )
+                players = [name.strip('\" ') for name in out.split() if 'org.mpris.MediaPlayer2.' in name]
+                for p in players:
+                    subprocess.run(
+                        ['dbus-send', '--session', '--type=method_call', f'--dest={p}', '/org/mpris/MediaPlayer2', f'org.mpris.MediaPlayer2.Player.{method}'],
+                        check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
+            except Exception as e:
+                logger.debug(f"Media control error: {e}")
+        threading.Thread(target=_exec, daemon=True).start()
+
     def _on_knob_action(self, action: str, timestamp: float) -> None:
         """Called when rotary encoder volume knob turns, clicks, or triggers gestures."""
         logger.info(f"Rotary knob action detected: {action}")
+        if self.is_locked:
+            self.set_locked(False)
+
         if action in ("volume_up", "volume_down", "mute_click"):
             self.volume_gauge.trigger_activity()
         elif action in ("knob_long_press", "knob_double_click"):
             logger.info("Knob gesture detected: toggling hardware preset vs software mode!")
             self._handle_ipc_command({"action": "toggle_mode"})
+        elif action in ("workspace_next", "workspace_prev"):
+            direction = "e+1" if action == "workspace_next" else "e-1"
+            threading.Thread(
+                target=lambda: subprocess.run(["hyprctl", "dispatch", "workspace", direction], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL),
+                daemon=True
+            ).start()
+        elif action in ("media_next", "media_prev", "media_play_pause"):
+            method = "Next" if action == "media_next" else ("Previous" if action == "media_prev" else "PlayPause")
+            self._dispatch_mpris(method)
+        elif action in ("led_brightness_up", "led_brightness_down"):
+            step = 0.05 if action == "led_brightness_up" else -0.05
+            new_b = max(0.10, min(1.0, self.compositor.global_brightness + step))
+            self.set_brightness(new_b)
 
     def _on_workspace_change(self, workspace_name: str) -> None:
         logger.debug(f"Hyprland workspace changed to: {workspace_name}")
@@ -154,13 +230,41 @@ class LightingEngine:
 
     def _on_active_window(self, win_class: str, win_title: str) -> None:
         logger.debug(f"Hyprland active window: {win_class}")
-        prof = self.profile_manager.get_active_profile()
-        if prof and prof.app_rules:
-            for pattern, target in prof.app_rules.items():
-                if pattern.lower() in win_class.lower():
-                    if target != self.profile_manager.active_profile_name:
-                        self.switch_profile(target)
-                    break
+        if "hyprlock" in win_class.lower() or "hyprlock" in win_title.lower():
+            self.set_locked(True)
+            return
+        elif self.is_locked:
+            self.set_locked(False)
+
+        if not self.auto_profile_enabled:
+            return
+
+        # Intelligent Application Profile Mapping
+        app_map = {
+            "code": "stealth_crimson",
+            "codium": "stealth_crimson",
+            "micro": "stealth_crimson",
+            "kitty": "stealth_crimson",
+            "foot": "stealth_crimson",
+            "alacritty": "stealth_crimson",
+            "wezterm": "stealth_crimson",
+            "terminal": "stealth_crimson",
+            "spotify": "electric_sapphire",
+            "ncspot": "electric_sapphire",
+            "zen": "daylight_sapphire",
+            "firefox": "daylight_sapphire",
+            "chromium": "daylight_sapphire",
+            "brave": "daylight_sapphire",
+            "google-chrome": "daylight_sapphire",
+            "steam": "gaming",
+            "gamescope": "gaming",
+        }
+        for pattern, target_prof in app_map.items():
+            if pattern in win_class.lower():
+                if target_prof != self.profile_manager.active_profile_name:
+                    logger.info(f"Auto-switching profile to '{target_prof}' for app: {win_class}")
+                    self.switch_profile(target_prof)
+                break
 
     def _on_fullscreen(self, is_fullscreen: bool) -> None:
         logger.debug(f"Hyprland fullscreen state: {is_fullscreen}")
@@ -185,6 +289,14 @@ class LightingEngine:
                     "hardware_mode": getattr(self.adapter, "is_paused", False),
                     "volume": int(self.volume_gauge.current_volume * 100),
                     "muted": self.volume_gauge.is_muted,
+                    "wpm": int(self.wpm_gauge.current_wpm),
+                    "wpm_enabled": self.wpm_gauge.enabled,
+                    "peak_wpm": int(self.wpm_gauge.peak_wpm),
+                    "pomodoro_active": self.pomodoro.is_active,
+                    "pomodoro_remaining": self.pomodoro.remaining_minutes_str if self.pomodoro.is_active else None,
+                    "auto_profile": self.auto_profile_enabled,
+                    "audio_pulse": self.audio_pulse.enabled,
+                    "locked": self.is_locked,
                     "fps": self.target_fps
                 }
             }
@@ -259,6 +371,63 @@ class LightingEngine:
             self.telemetry_effect.enabled = not self.telemetry_effect.enabled
             return {"status": "ok", "telemetry_enabled": self.telemetry_effect.enabled}
 
+        elif action == "toggle_wpm" or action == "wpm":
+            if "enabled" in req:
+                self.wpm_gauge.enabled = bool(req["enabled"])
+            else:
+                self.wpm_gauge.enabled = not self.wpm_gauge.enabled
+            return {
+                "status": "ok",
+                "wpm_enabled": self.wpm_gauge.enabled,
+                "current_wpm": int(self.wpm_gauge.current_wpm),
+                "peak_wpm": int(self.wpm_gauge.peak_wpm)
+            }
+
+        elif action == "pomodoro":
+            sub = req.get("subaction", "status")
+            if sub == "start":
+                mins = float(req.get("minutes", 25))
+                self.pomodoro.start_timer(mins)
+                return {"status": "ok", "active": True, "minutes": mins}
+            elif sub == "cancel":
+                self.pomodoro.cancel()
+                return {"status": "ok", "active": False}
+            else:
+                return {
+                    "status": "ok",
+                    "active": self.pomodoro.is_active,
+                    "remaining": self.pomodoro.remaining_minutes_str,
+                    "remaining_seconds": int(self.pomodoro.remaining_seconds)
+                }
+
+        elif action == "toggle_auto_profile" or action == "auto_profile":
+            if "enabled" in req:
+                self.auto_profile_enabled = bool(req["enabled"])
+            else:
+                self.auto_profile_enabled = not self.auto_profile_enabled
+            return {"status": "ok", "auto_profile": self.auto_profile_enabled}
+
+        elif action == "toggle_audio_pulse" or action == "audio_pulse":
+            if "enabled" in req:
+                self.audio_pulse.enabled = bool(req["enabled"])
+            else:
+                self.audio_pulse.enabled = not self.audio_pulse.enabled
+
+            if self.audio_pulse.enabled and not self.audio_monitor.is_running:
+                self.audio_monitor.start()
+            elif not self.audio_pulse.enabled and self.audio_monitor.is_running:
+                self.audio_monitor.stop()
+
+            return {"status": "ok", "audio_pulse": self.audio_pulse.enabled}
+
+        elif action == "lock":
+            state = req.get("state")
+            if state is not None:
+                self.set_locked(bool(state))
+            else:
+                self.set_locked(not self.is_locked)
+            return {"status": "ok", "locked": self.is_locked}
+
         elif action == "trigger_ripple":
             led = int(req.get("led", 75))
             self.trigger_key(led)
@@ -305,6 +474,9 @@ class LightingEngine:
 
         if self.hyprland:
             self.hyprland.stop()
+
+        if hasattr(self, "audio_monitor") and self.audio_monitor.is_running:
+            self.audio_monitor.stop()
 
         self.ipc_server.stop()
 

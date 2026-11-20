@@ -67,6 +67,27 @@ def main():
     subparsers.add_parser("software-mode", help="Re-engage Smoky Velvet fluid lighting engine")
     subparsers.add_parser("on", help="Alias: Instantly jump back to Smoky Velvet fluid lighting")
 
+    # wpm
+    wpm_parser = subparsers.add_parser("wpm", help="Toggle or view real-time typing WPM speedometer")
+    wpm_parser.add_argument("state", nargs="?", choices=["on", "off"], help="Enable or disable WPM gauge")
+
+    # pomodoro
+    pomo_parser = subparsers.add_parser("pomodoro", help="Start or manage F-row focus timer")
+    pomo_parser.add_argument("minutes", type=float, nargs="?", default=None, help="Timer duration in minutes (e.g. 25)")
+    pomo_parser.add_argument("--cancel", action="store_true", help="Cancel active timer")
+
+    # auto-profile
+    auto_parser = subparsers.add_parser("auto-profile", help="Toggle Hyprland active window auto-profile switching")
+    auto_parser.add_argument("state", nargs="?", choices=["on", "off"], help="Enable or disable auto-profile")
+
+    # audio-pulse
+    pulse_parser = subparsers.add_parser("audio-pulse", help="Toggle PipeWire music beat pulse across keys")
+    pulse_parser.add_argument("state", nargs="?", choices=["on", "off"], help="Enable or disable audio pulse")
+
+    # lock
+    lock_parser = subparsers.add_parser("lock", help="Engage/disengage lockscreen ambient breathing mode")
+    lock_parser.add_argument("state", nargs="?", choices=["on", "off"], help="Force lock mode on or off")
+
     args = parser.parse_args()
 
     if args.command == "gui":
@@ -107,6 +128,11 @@ def main():
         print(f"  • Base Color:      {data.get('base_color_hex')}")
         print(f"  • Brightness:      {int(data.get('brightness', 1.0) * 100)}%")
         print(f"  • Reactive Ripple: {'Enabled' if data.get('reactive_enabled') else 'Disabled'}")
+        print(f"  • Speedometer:     {data.get('wpm', 0)} WPM (Peak: {data.get('peak_wpm', 0)}) [{'Enabled' if data.get('wpm_enabled') else 'Disabled'}]")
+        pomo_str = f"Active ({data.get('pomodoro_remaining')} remaining)" if data.get('pomodoro_active') else "Inactive"
+        print(f"  • Pomodoro Timer:  {pomo_str}")
+        print(f"  • Auto-Profile:    {'Active (Hyprland App Detection)' if data.get('auto_profile') else 'Disabled'}")
+        print(f"  • Audio Beat Pulse:{'Active (PipeWire)' if data.get('audio_pulse') else 'Disabled'}")
         print(f"  • Typing Heatmap:  {'Active' if data.get('heatmap_enabled') else 'Disabled'}")
         print(f"  • System Telemetry:{'Active' if data.get('telemetry_enabled') else 'Disabled'}")
         print(f"  • Frame Rate:      {data.get('fps', 50):.0f} FPS")
@@ -222,6 +248,80 @@ def main():
         resp = IpcClient.send_command({"action": "trigger_ripple", "led": args.key})
         if resp.get("status") == "ok":
             print(f"⚡ Test ripple dispatched to LED {args.key}")
+        else:
+            print(f"❌ Error: {resp.get('message')}")
+        return
+
+    if args.command == "wpm":
+        payload = {"action": "wpm"}
+        if args.state:
+            payload["enabled"] = (args.state == "on")
+        resp = IpcClient.send_command(payload)
+        if resp.get("status") == "ok":
+            state = "Enabled" if resp.get("wpm_enabled") else "Disabled"
+            print(f"⚡ Live Typing Speedometer: {state} ({resp.get('current_wpm', 0)} WPM, Peak: {resp.get('peak_wpm', 0)})")
+        else:
+            print(f"❌ Error: {resp.get('message')}")
+        return
+
+    if args.command == "pomodoro":
+        if args.cancel:
+            resp = IpcClient.send_command({"action": "pomodoro", "subaction": "cancel"})
+            if resp.get("status") == "ok":
+                print("⏹️ Pomodoro focus timer cancelled.")
+            else:
+                print(f"❌ Error: {resp.get('message')}")
+            return
+        elif args.minutes is not None:
+            resp = IpcClient.send_command({"action": "pomodoro", "subaction": "start", "minutes": args.minutes})
+            if resp.get("status") == "ok":
+                print(f"⏳ Pomodoro focus timer started: {args.minutes:.0f} minutes! (F1–F12 countdown gauge engaged)")
+            else:
+                print(f"❌ Error: {resp.get('message')}")
+            return
+        else:
+            resp = IpcClient.send_command({"action": "pomodoro", "subaction": "status"})
+            if resp.get("status") == "ok":
+                if resp.get("active"):
+                    print(f"⏳ Active Pomodoro: {resp.get('remaining')} remaining")
+                else:
+                    print("⏳ No active Pomodoro timer. Start one with 'smoky-velvet pomodoro 25'.")
+            else:
+                print(f"❌ Error: {resp.get('message')}")
+            return
+
+    if args.command == "auto-profile":
+        payload = {"action": "auto_profile"}
+        if args.state:
+            payload["enabled"] = (args.state == "on")
+        resp = IpcClient.send_command(payload)
+        if resp.get("status") == "ok":
+            state = "Enabled" if resp.get("auto_profile") else "Disabled"
+            print(f"🧠 Hyprland Active Window Auto-Profile: {state}")
+        else:
+            print(f"❌ Error: {resp.get('message')}")
+        return
+
+    if args.command == "audio-pulse":
+        payload = {"action": "audio_pulse"}
+        if args.state:
+            payload["enabled"] = (args.state == "on")
+        resp = IpcClient.send_command(payload)
+        if resp.get("status") == "ok":
+            state = "Enabled" if resp.get("audio_pulse") else "Disabled"
+            print(f"🎵 PipeWire Music Beat Pulse: {state}")
+        else:
+            print(f"❌ Error: {resp.get('message')}")
+        return
+
+    if args.command == "lock":
+        payload = {"action": "lock"}
+        if args.state:
+            payload["state"] = (args.state == "on")
+        resp = IpcClient.send_command(payload)
+        if resp.get("status") == "ok":
+            state = "Engaged (Deep Breathing Ember)" if resp.get("locked") else "Disengaged (Daylight Profile Restored)"
+            print(f"🌙 Ambient Lockscreen Mode: {state}")
         else:
             print(f"❌ Error: {resp.get('message')}")
         return

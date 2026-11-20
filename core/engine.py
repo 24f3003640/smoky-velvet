@@ -77,7 +77,7 @@ class LightingEngine:
             on_energy=self.audio_pulse.set_energy
         )
 
-        self.auto_profile_enabled = True
+        self.auto_profile_enabled = False
         self.is_locked = False
         self._normal_brightness = self.compositor.global_brightness
 
@@ -242,23 +242,10 @@ class LightingEngine:
         if not self.auto_profile_enabled:
             return
 
-        # Intelligent Application Profile Mapping
+        # Intelligent Application Profile Mapping (specialized apps)
         app_map = {
-            "code": "stealth_crimson",
-            "codium": "stealth_crimson",
-            "micro": "stealth_crimson",
-            "kitty": "stealth_crimson",
-            "foot": "stealth_crimson",
-            "alacritty": "stealth_crimson",
-            "wezterm": "stealth_crimson",
-            "terminal": "stealth_crimson",
             "spotify": "electric_sapphire",
             "ncspot": "electric_sapphire",
-            "zen": "daylight_sapphire",
-            "firefox": "daylight_sapphire",
-            "chromium": "daylight_sapphire",
-            "brave": "daylight_sapphire",
-            "google-chrome": "daylight_sapphire",
             "steam": "gaming",
             "gamescope": "gaming",
         }

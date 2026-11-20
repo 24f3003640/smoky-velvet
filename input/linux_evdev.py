@@ -124,48 +124,21 @@ class LinuxEvdevListener(InputListener):
         """
         Synchronizes hardware Caps Lock LED state across all URX Core75 interfaces.
         Fixes the Linux Wayland/Hyprland dual-interface desynchronization quirk.
-        Reconciles split-brain states where rapid toggling leaves one interface ON and one OFF.
+        NOTE: Never injects synthetic keystrokes. Only sets output LED state via dev.set_led.
         """
-        urx_states: dict[str, bool] = {}
-        main_caps_on = False
-
+        caps_on = False
         try:
             res = subprocess.run(["hyprctl", "devices", "-j"], capture_output=True, text=True, timeout=0.8)
             data = json.loads(res.stdout)
             for kb in data.get("keyboards", []):
                 name = kb.get("name", "").lower()
-                if "urx" in name:
-                    is_caps = bool(kb.get("capsLock", False))
-                    urx_states[name] = is_caps
+                # Focus strictly on the primary URX typing keyboard
+                if "urx" in name and ("keyboard" in name or kb.get("main", False)):
+                    caps_on = bool(kb.get("capsLock", False))
                     if kb.get("main", False):
-                        main_caps_on = is_caps
+                        break
         except Exception:
             return
-
-        if not urx_states:
-            return
-
-        # Split-brain reconciliation:
-        # If URX interfaces disagree (one True, one False from rapid presses),
-        # reconcile them to match the main active keyboard state.
-        if len(set(urx_states.values())) > 1:
-            target_state = main_caps_on
-            for dev in self._devices:
-                clean_name = dev.name.lower().replace(" ", "-")
-                for name, state in urx_states.items():
-                    if (clean_name in name or name in clean_name) and state != target_state:
-                        try:
-                            dev.write(evdev.ecodes.EV_KEY, evdev.ecodes.KEY_CAPSLOCK, 1)
-                            dev.write(evdev.ecodes.EV_SYN, evdev.ecodes.SYN_REPORT, 0)
-                            time.sleep(0.01)
-                            dev.write(evdev.ecodes.EV_KEY, evdev.ecodes.KEY_CAPSLOCK, 0)
-                            dev.write(evdev.ecodes.EV_SYN, evdev.ecodes.SYN_REPORT, 0)
-                            logger.info(f"Reconciled split-brain Caps Lock on {dev.path} to {target_state}")
-                        except Exception:
-                            pass
-            caps_on = target_state
-        else:
-            caps_on = next(iter(urx_states.values()))
 
         target_val = 1 if caps_on else 0
         for dev in self._devices:

@@ -68,18 +68,18 @@ WPM_THEMES: Dict[str, List[Color]] = {
         Color(255, 60, 180),  # 9: Shocking Fuchsia
         Color(255, 255, 255), # 0: Solar White
     ],
-    # 4. Pure Imperial Amber Gold: Deep molten amber to 24k imperial gold (Green capped <= 168 to prevent lime/green shift)
+    # 4. Pure Antique Molten Gold: Tuned to hardware sweet spot (G=42..70) where LEDs render pure rich gold without turning yellow or green
     "amber_gold": [
-        Color(255, 45, 0),    # 1: Deep Molten Amber
-        Color(255, 58, 0),    # 2: Molten Amber
-        Color(255, 70, 0),    # 3: Rich Amber Gold
-        Color(255, 82, 0),    # 4: Warm Honey Gold
-        Color(255, 96, 0),    # 5: Rich 18k Gold
-        Color(255, 110, 0),   # 6: Pure 24k Gold
-        Color(255, 124, 0),   # 7: Radiant Imperial Gold
-        Color(255, 138, 0),   # 8: Vivid Sunfire Gold
-        Color(255, 152, 0),   # 9: Brilliant Solar Gold
-        Color(255, 168, 0),   # 0: Hyper-Radiant Imperial Gold
+        Color(255, 42, 0),    # 1: Pure Molten Gold
+        Color(255, 45, 0),    # 2: Pure Molten Gold
+        Color(255, 48, 0),    # 3: Pure Molten Gold
+        Color(255, 51, 0),    # 4: Pure Molten Gold
+        Color(255, 54, 0),    # 5: Pure Antique Gold
+        Color(255, 57, 0),    # 6: Pure Antique Gold
+        Color(255, 60, 0),    # 7: Pure Antique Gold
+        Color(255, 63, 0),    # 8: Radiant Molten Gold
+        Color(255, 66, 0),    # 9: Radiant Molten Gold
+        Color(255, 70, 0),    # 0: Pure Peak Molten Gold
     ],
     # 5. Neon Mint: Matrix-style electric mint emerald transitioning into pure white
     "neon_mint": [
@@ -172,7 +172,7 @@ class WpmGaugeEffect(Effect):
         palette = WPM_THEMES.get(self.theme, WPM_THEMES["tachometer"])
         is_overdrive = self._current_wpm >= 100.0
 
-        highlight_target = Color(255, 185, 0) if self.theme == "amber_gold" else COLOR_SOLAR_WHITE
+        highlight_target = Color(255, 75, 0) if self.theme == "amber_gold" else COLOR_SOLAR_WHITE
 
         for i, led_idx in enumerate(NUMBER_ROW_LEDS):
             if led_idx >= layout.led_count:

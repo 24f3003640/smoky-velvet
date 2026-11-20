@@ -1,0 +1,15 @@
+{
+  "name": "solar_daylight",
+  "description": "High-visibility daytime profile with warm Golden Amber base and Brilliant Solar White ripple.",
+  "version": 1,
+  "base_color_hex": "#FF8C00",
+  "brightness": 1.0,
+  "reactive_enabled": true,
+  "reactive_duration": 1.10,
+  "reactive_max_radius": 3.0,
+  "reactive_wave_thickness": 1.2,
+  "reactive_crest_color_hex": "#FFFFFF",
+  "custom_key_colors": {},
+  "workspace_bindings": {},
+  "app_rules": {}
+}

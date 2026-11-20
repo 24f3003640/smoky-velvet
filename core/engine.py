@@ -29,7 +29,7 @@ class LightingEngine:
         layout: KeyboardLayout,
         adapter: OpenRGBDeviceAdapter,
         input_listener: Optional[InputListener] = None,
-        target_fps: float = 35.0,
+        target_fps: float = 30.0,
         enable_hyprland: bool = True
     ):
         self.layout = layout

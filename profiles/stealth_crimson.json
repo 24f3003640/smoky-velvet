@@ -3,7 +3,7 @@
   "description": "Stealth obsidian profile. Deep blood crimson base (0% green) with brilliant pure white ripples.",
   "version": 1,
   "base_color_hex": "#D60029",
-  "brightness": 1.0,
+  "brightness": 0.85,
   "reactive_enabled": true,
   "reactive_duration": 1.10,
   "reactive_max_radius": 3.0,

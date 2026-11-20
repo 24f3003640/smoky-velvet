@@ -22,6 +22,7 @@ class LinuxEvdevListener(InputListener):
         self.device_path = device_path
         self._devices: List[evdev.InputDevice] = []
         self._threads: List[threading.Thread] = []
+        self._supervisor_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._is_running = False
         self._last_abs_vol: Optional[int] = None
@@ -58,32 +59,27 @@ class LinuxEvdevListener(InputListener):
 
         return paths
 
-    def start(self) -> None:
-        if self._is_running:
-            return
-
-        target_paths = self._find_device_paths()
-        if not target_paths:
-            logger.error("Could not find any URX Core75 keyboard device nodes.")
-            return
-
+    def _attach_devices(self, target_paths: List[str]) -> bool:
+        """Attach to input device nodes and launch reader threads."""
+        for dev in self._devices:
+            try:
+                dev.close()
+            except Exception:
+                pass
         self._devices.clear()
+        self._threads.clear()
+
         for p in target_paths:
             try:
                 dev = evdev.InputDevice(p)
                 self._devices.append(dev)
                 logger.info(f"Listening for input on: {dev.path} ({dev.name})")
             except Exception as e:
-                logger.error(f"Failed to open evdev device {p}: {e}")
+                logger.warning(f"Failed to open evdev device {p}: {e}")
 
         if not self._devices:
-            return
+            return False
 
-        self._stop_event.clear()
-        self._is_running = True
-        self._threads.clear()
-
-        # Dedicated reader thread per input endpoint
         for dev in self._devices:
             t = threading.Thread(
                 target=self._read_device_loop,
@@ -93,10 +89,45 @@ class LinuxEvdevListener(InputListener):
             )
             self._threads.append(t)
             t.start()
+        return True
+
+    def _supervisor_loop(self) -> None:
+        """Monitors evdev reader threads. If keyboard resets or reconnects, reattaches automatically."""
+        while not self._stop_event.wait(timeout=2.0):
+            alive_threads = [t for t in self._threads if t.is_alive()]
+            if not alive_threads:
+                paths = self._find_device_paths()
+                if paths:
+                    logger.info("Auto-reconnecting to URX Core75 input devices...")
+                    self._attach_devices(paths)
+
+    def start(self) -> None:
+        if self._is_running:
+            return
+
+        self._stop_event.clear()
+        self._is_running = True
+
+        target_paths = self._find_device_paths()
+        if target_paths:
+            self._attach_devices(target_paths)
+        else:
+            logger.warning("No URX Core75 input devices found on startup. Supervisor will auto-detect on connection.")
+
+        self._supervisor_thread = threading.Thread(
+            target=self._supervisor_loop,
+            daemon=True,
+            name="EvdevSupervisor"
+        )
+        self._supervisor_thread.start()
 
     def stop(self) -> None:
         self._stop_event.set()
         self._is_running = False
+
+        if self._supervisor_thread and self._supervisor_thread.is_alive():
+            self._supervisor_thread.join(timeout=0.5)
+            self._supervisor_thread = None
 
         for dev in self._devices:
             try:

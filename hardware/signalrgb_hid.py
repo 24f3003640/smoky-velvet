@@ -42,7 +42,7 @@ class SignalRGBRawHIDAdapter:
         self,
         device_path: Optional[str] = None,
         led_count: int = 82,
-        min_frame_interval: float = 0.028  # ~35 FPS smooth pacing
+        min_frame_interval: float = 0.033  # ~30 FPS smooth pacing, leaves comfortable USB bus idle budget
     ):
         self.device_path = device_path
         self.led_count = led_count
@@ -132,16 +132,9 @@ class SignalRGBRawHIDAdapter:
         """Gracefully release device, disabling SignalRGB stream mode."""
         if self._fd is not None:
             try:
-                # 1. Disable SignalRGB stream mode (0x26)
+                # Disable SignalRGB stream mode (0x26), returning keyboard to onboard firmware
                 disable_pkt = bytes([CMD_SIGNALRGB_DISABLE] + [0x00] * (PACKET_SIZE - 1))
                 os.write(self._fd, disable_pkt)
-
-                # 2. Restore VIA Solid Color (Smoky Plum Velvet: Hue 215, Sat 255)
-                solid_cmd = bytes([CMD_VIA_CUSTOM_SET_VAL, 3, 2, 1] + [0x00] * 28)
-                color_cmd = bytes([CMD_VIA_CUSTOM_SET_VAL, 3, 4, 215, 255] + [0x00] * 27)
-                os.write(self._fd, solid_cmd)
-                os.write(self._fd, color_cmd)
-
                 os.close(self._fd)
             except Exception as e:
                 logger.warning(f"Error during disconnect: {e}")
@@ -211,7 +204,7 @@ class SignalRGBRawHIDAdapter:
                     packet.extend([0] * (PACKET_SIZE - len(packet)))
 
                 os.write(self._fd, bytes(packet[:PACKET_SIZE]))
-                time.sleep(0.0012)  # Inter-packet pacing: prevents USB FIFO overruns and LED matrix flicker
+                time.sleep(0.0022)  # Inter-packet pacing: 2.2ms guarantees separate USB 1ms frames, completely preventing MCU FIFO overruns and USB -EOVERFLOW (-75)
 
             self._last_send_time = now
             return True

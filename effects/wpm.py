@@ -68,18 +68,18 @@ WPM_THEMES: Dict[str, List[Color]] = {
         Color(255, 60, 180),  # 9: Shocking Fuchsia
         Color(255, 255, 255), # 0: Solar White
     ],
-    # 4. Amber Gold: Radiant molten solar amber transitioning into pure white (0% green)
+    # 4. Pure Amber Gold: 100% Pure Warm Gold/Amber (ZERO blue across all keys - 100% cyan-proof)
     "amber_gold": [
-        Color(255, 150, 0),   # 1: Deep Amber
-        Color(255, 165, 0),   # 2: Amber
-        Color(255, 180, 0),   # 3: Solar Gold
-        Color(255, 195, 0),   # 4: Warm Gold
-        Color(255, 210, 0),   # 5: Brilliant Gold
-        Color(255, 220, 30),  # 6: Yellow Gold
-        Color(255, 230, 70),  # 7: Light Gold
-        Color(255, 240, 120), # 8: Pale Sun
-        Color(255, 248, 180), # 9: Solar Ray
-        Color(255, 255, 255), # 0: Solar White
+        Color(255, 120, 0),   # 1: Deep Molten Amber
+        Color(255, 135, 0),   # 2: Molten Amber
+        Color(255, 150, 0),   # 3: Rich Amber
+        Color(255, 165, 0),   # 4: Warm Solar Amber
+        Color(255, 180, 0),   # 5: Solar Amber Gold
+        Color(255, 195, 0),   # 6: Pure Warm Gold
+        Color(255, 210, 0),   # 7: Brilliant Pure Gold (B=0)
+        Color(255, 225, 0),   # 8: Radiant Sunfire Gold (B=0)
+        Color(255, 240, 0),   # 9: Hyper-Luminescent Gold (B=0)
+        Color(255, 255, 0),   # 0: Pure Blazing Solar Yellow-Gold (B=0)
     ],
     # 5. Neon Mint: Matrix-style electric mint emerald transitioning into pure white
     "neon_mint": [
@@ -172,6 +172,8 @@ class WpmGaugeEffect(Effect):
         palette = WPM_THEMES.get(self.theme, WPM_THEMES["tachometer"])
         is_overdrive = self._current_wpm >= 100.0
 
+        highlight_target = Color(255, 255, 0) if self.theme == "amber_gold" else COLOR_SOLAR_WHITE
+
         for i, led_idx in enumerate(NUMBER_ROW_LEDS):
             if led_idx >= layout.led_count:
                 continue
@@ -182,23 +184,22 @@ class WpmGaugeEffect(Effect):
                 # Fully lit key - 100% opacity overrides base layer without muddy bleed
                 key_opacity = 1.0 * self._display_opacity
                 if is_overdrive:
-                    key_color = base_color.lerp(COLOR_SOLAR_WHITE, 0.35)
+                    key_color = base_color.lerp(highlight_target, 0.35)
                 else:
                     key_color = base_color
             elif i == int(active_keys_float):
                 # Partial leading edge key acts as luminous needle highlight
                 partial = active_keys_float - int(active_keys_float)
                 key_opacity = max(0.0, partial * 1.0 * self._display_opacity)
-                key_color = base_color.lerp(COLOR_SOLAR_WHITE, 0.45)
+                key_color = base_color.lerp(highlight_target, 0.45)
             else:
                 key_opacity = 0.0
+                key_color = None
 
-            if key_opacity > 0.01:
-                existing = buffer[led_idx]
-                if existing is not None:
-                    ex_color, ex_alpha = existing
-                    # WPM speedometer has visual priority on the number row so ripples don't wash it out
-                    blended_color = ex_color.blend_alpha(key_color, key_opacity)
-                    buffer[led_idx] = (blended_color, max(key_opacity, ex_alpha))
-                else:
-                    buffer[led_idx] = (key_color, key_opacity)
+            if key_opacity > 0.01 and key_color is not None:
+                # WPM active key completely overrides any transient ripple
+                buffer[led_idx] = (key_color, key_opacity)
+            elif self._display_opacity > 0.15:
+                # Shield the inactive keys on the number row from passing ripples
+                # so the unlit end of the gauge never flashes with cyan ripple artifacts
+                buffer[led_idx] = None

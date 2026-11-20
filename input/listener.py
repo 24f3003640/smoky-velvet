@@ -12,16 +12,23 @@ KeyCallback = Callable[[int, float], None]
 # action can be: "volume_up", "volume_down", "mute_click", "knob_long_press", "knob_double_click"
 KnobCallback = Callable[[str, float], None]
 
+# Caps Lock state Callback signature: (is_active: bool) -> None
+CapsLockCallback = Callable[[bool], None]
+
 class InputListener(ABC):
     def __init__(self):
         self._callback: Optional[KeyCallback] = None
         self._knob_callback: Optional[KnobCallback] = None
+        self._caps_lock_callback: Optional[CapsLockCallback] = None
 
     def set_callback(self, callback: KeyCallback) -> None:
         self._callback = callback
 
     def set_knob_callback(self, callback: KnobCallback) -> None:
         self._knob_callback = callback
+
+    def set_caps_lock_callback(self, callback: CapsLockCallback) -> None:
+        self._caps_lock_callback = callback
 
     @abstractmethod
     def start(self) -> None:

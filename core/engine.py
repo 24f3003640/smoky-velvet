@@ -184,7 +184,7 @@ class LightingEngine:
     def set_caps_lock(self, is_active: bool, color: Optional[Color] = None) -> None:
         """Indicator for Caps Lock (LED index 44)."""
         if is_active:
-            ind_color = color if color is not None else Color(255, 255, 255)
+            ind_color = color if color is not None else Color(0, 229, 255)  # Electric Cyan indicator
             self.compositor.indicator_layer.set_indicator(44, ind_color, opacity=1.0)
         else:
             self.compositor.indicator_layer.clear_indicator(44)
@@ -471,6 +471,8 @@ class LightingEngine:
         if self.input_listener:
             self.input_listener.set_callback(self.trigger_key)
             self.input_listener.set_knob_callback(self._on_knob_action)
+            if hasattr(self.input_listener, "set_caps_lock_callback"):
+                self.input_listener.set_caps_lock_callback(self.set_caps_lock)
             self.input_listener.start()
 
         # 3. Start IPC server

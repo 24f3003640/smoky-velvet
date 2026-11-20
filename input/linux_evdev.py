@@ -148,6 +148,12 @@ class LinuxEvdevListener(InputListener):
             except Exception:
                 pass
 
+        if self._caps_lock_callback is not None:
+            try:
+                self._caps_lock_callback(caps_on)
+            except Exception as e:
+                logger.debug(f"Caps lock callback error: {e}")
+
     def _supervisor_loop(self) -> None:
         """Monitors evdev reader threads. If keyboard resets or reconnects, reattaches automatically."""
         while not self._stop_event.wait(timeout=2.0):

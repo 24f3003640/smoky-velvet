@@ -72,7 +72,10 @@ class LightingEngine:
 
         self.audio_pulse = AudioPulseEffect()
         self.compositor.reactive_layer.add_effect(self.audio_pulse)
-        self.audio_monitor = AudioEnergyMonitor(self.audio_pulse.trigger_beat)
+        self.audio_monitor = AudioEnergyMonitor(
+            on_beat=self.audio_pulse.trigger_beat,
+            on_energy=self.audio_pulse.set_energy
+        )
 
         self.auto_profile_enabled = True
         self.is_locked = False

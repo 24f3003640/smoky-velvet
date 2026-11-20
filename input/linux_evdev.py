@@ -30,6 +30,8 @@ class LinuxEvdevListener(InputListener):
         self._last_abs_vol: Optional[int] = None
         self._active_modifiers = set()
         self._modifier_lock = threading.Lock()
+        self._caps_timer: Optional[threading.Timer] = None
+        self._caps_timer_lock = threading.Lock()
 
     def _resolve_knob_turn(self, direction: str) -> str:
         """Resolve knob turn action based on active modifier keys."""
@@ -106,21 +108,64 @@ class LinuxEvdevListener(InputListener):
             t.start()
         return True
 
+    def _schedule_caps_sync(self, delay: float = 0.08) -> None:
+        """Schedules a debounced Caps Lock synchronization after physical key settling."""
+        with self._caps_timer_lock:
+            if self._caps_timer is not None:
+                try:
+                    self._caps_timer.cancel()
+                except Exception:
+                    pass
+            self._caps_timer = threading.Timer(delay, self._sync_caps_lock)
+            self._caps_timer.daemon = True
+            self._caps_timer.start()
+
     def _sync_caps_lock(self) -> None:
         """
         Synchronizes hardware Caps Lock LED state across all URX Core75 interfaces.
         Fixes the Linux Wayland/Hyprland dual-interface desynchronization quirk.
+        Reconciles split-brain states where rapid toggling leaves one interface ON and one OFF.
         """
-        caps_on = False
+        urx_states: dict[str, bool] = {}
+        main_caps_on = False
+
         try:
-            res = subprocess.run(["hyprctl", "devices", "-j"], capture_output=True, text=True, timeout=0.5)
+            res = subprocess.run(["hyprctl", "devices", "-j"], capture_output=True, text=True, timeout=0.8)
             data = json.loads(res.stdout)
             for kb in data.get("keyboards", []):
-                if "urx" in kb.get("name", "").lower() and kb.get("main", False):
-                    caps_on = bool(kb.get("capsLock", False))
-                    break
+                name = kb.get("name", "").lower()
+                if "urx" in name:
+                    is_caps = bool(kb.get("capsLock", False))
+                    urx_states[name] = is_caps
+                    if kb.get("main", False):
+                        main_caps_on = is_caps
         except Exception:
             return
+
+        if not urx_states:
+            return
+
+        # Split-brain reconciliation:
+        # If URX interfaces disagree (one True, one False from rapid presses),
+        # reconcile them to match the main active keyboard state.
+        if len(set(urx_states.values())) > 1:
+            target_state = main_caps_on
+            for dev in self._devices:
+                clean_name = dev.name.lower().replace(" ", "-")
+                for name, state in urx_states.items():
+                    if (clean_name in name or name in clean_name) and state != target_state:
+                        try:
+                            dev.write(evdev.ecodes.EV_KEY, evdev.ecodes.KEY_CAPSLOCK, 1)
+                            dev.write(evdev.ecodes.EV_SYN, evdev.ecodes.SYN_REPORT, 0)
+                            time.sleep(0.01)
+                            dev.write(evdev.ecodes.EV_KEY, evdev.ecodes.KEY_CAPSLOCK, 0)
+                            dev.write(evdev.ecodes.EV_SYN, evdev.ecodes.SYN_REPORT, 0)
+                            logger.info(f"Reconciled split-brain Caps Lock on {dev.path} to {target_state}")
+                        except Exception:
+                            pass
+            caps_on = target_state
+        else:
+            caps_on = next(iter(urx_states.values()))
 
         target_val = 1 if caps_on else 0
         for dev in self._devices:
@@ -164,6 +209,14 @@ class LinuxEvdevListener(InputListener):
     def stop(self) -> None:
         self._stop_event.set()
         self._is_running = False
+
+        with self._caps_timer_lock:
+            if self._caps_timer is not None:
+                try:
+                    self._caps_timer.cancel()
+                except Exception:
+                    pass
+                self._caps_timer = None
 
         if self._supervisor_thread and self._supervisor_thread.is_alive():
             self._supervisor_thread.join(timeout=0.5)
@@ -221,6 +274,10 @@ class LinuxEvdevListener(InputListener):
                 # 3. Key events (EV_KEY)
                 elif event.type == evdev.ecodes.EV_KEY:
                     key_code = event.code
+
+                    # If Caps Lock pressed or released, schedule debounced sync (waits for key settling)
+                    if key_code == evdev.ecodes.KEY_CAPSLOCK:
+                        self._schedule_caps_sync(0.08)
 
                     # Track active modifiers
                     mod_map = {
@@ -283,12 +340,6 @@ class LinuxEvdevListener(InputListener):
 
                     # Standard keypress down (value == 1)
                     elif event.value == 1:
-                        if key_code == evdev.ecodes.KEY_CAPSLOCK:
-                            def _delayed_caps_sync():
-                                time.sleep(0.04)
-                                self._sync_caps_lock()
-                            threading.Thread(target=_delayed_caps_sync, daemon=True, name="CapsSync").start()
-
                         try:
                             key_name = evdev.ecodes.KEY[key_code]
                             if isinstance(key_name, list):

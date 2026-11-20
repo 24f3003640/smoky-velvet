@@ -437,6 +437,10 @@ class LightingEngine:
                 self.set_locked(not self.is_locked)
             return {"status": "ok", "locked": self.is_locked}
 
+        elif action == "dump_frame":
+            frame, _ = self.compositor.render_frame()
+            return {"status": "ok", "colors": [c.to_hex() for c in frame]}
+
         elif action == "set_indicator":
             led = int(req.get("led", 44))
             color_hex = req.get("color", "#FFFFFF")

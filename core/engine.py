@@ -62,6 +62,14 @@ class LightingEngine:
         self.compositor.reactive_layer.add_effect(self.volume_gauge)
 
         self.wpm_gauge = WpmGaugeEffect()
+        wpm_theme_file = self.profile_manager.profiles_dir / ".wpm_theme"
+        if wpm_theme_file.exists():
+            try:
+                saved_theme = wpm_theme_file.read_text(encoding="utf-8").strip()
+                if saved_theme:
+                    self.wpm_gauge.set_theme(saved_theme)
+            except Exception:
+                pass
         self.compositor.reactive_layer.add_effect(self.wpm_gauge)
 
         self.pomodoro = PomodoroTimerEffect()
@@ -281,6 +289,7 @@ class LightingEngine:
                     "muted": self.volume_gauge.is_muted,
                     "wpm": int(self.wpm_gauge.current_wpm),
                     "wpm_enabled": self.wpm_gauge.enabled,
+                    "wpm_theme": self.wpm_gauge.theme,
                     "peak_wpm": int(self.wpm_gauge.peak_wpm),
                     "pomodoro_active": self.pomodoro.is_active,
                     "pomodoro_remaining": self.pomodoro.remaining_minutes_str if self.pomodoro.is_active else None,
@@ -364,13 +373,23 @@ class LightingEngine:
         elif action == "toggle_wpm" or action == "wpm":
             if "enabled" in req:
                 self.wpm_gauge.enabled = bool(req["enabled"])
-            else:
+            elif "theme" not in req:
                 self.wpm_gauge.enabled = not self.wpm_gauge.enabled
+
+            if "theme" in req:
+                theme_val = str(req["theme"]).lower()
+                if self.wpm_gauge.set_theme(theme_val):
+                    try:
+                        (self.profile_manager.profiles_dir / ".wpm_theme").write_text(self.wpm_gauge.theme, encoding="utf-8")
+                    except Exception:
+                        pass
+
             return {
                 "status": "ok",
                 "wpm_enabled": self.wpm_gauge.enabled,
                 "current_wpm": int(self.wpm_gauge.current_wpm),
-                "peak_wpm": int(self.wpm_gauge.peak_wpm)
+                "peak_wpm": int(self.wpm_gauge.peak_wpm),
+                "theme": self.wpm_gauge.theme
             }
 
         elif action == "pomodoro":

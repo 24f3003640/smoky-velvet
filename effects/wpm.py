@@ -7,7 +7,7 @@ from __future__ import annotations
 import math
 import time
 from collections import deque
-from typing import Deque, List, Optional, Tuple
+from typing import Deque, Dict, List, Optional, Tuple
 from core.color import Color
 from core.layout import KeyboardLayout
 from effects.base import Effect
@@ -16,20 +16,92 @@ from effects.base import Effect
 # 15: "1", 16: "2", 17: "3", 18: "4", 19: "5", 20: "6", 21: "7", 22: "8", 23: "9", 24: "0"
 NUMBER_ROW_LEDS = [15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
 
-# Color velocity thresholds:
-# 20-40 WPM: Warm Molten Gold
-# 50-70 WPM: Electric Neon Violet
-# 80-100 WPM: Deep Stealth Crimson
-# 100+ WPM: Hyperdrive Solar White Overdrive
-COLOR_MOLTEN_GOLD   = Color(255, 160, 20)
-COLOR_NEON_VIOLET   = Color(160, 0, 255)
-COLOR_STEALTH_BLOOD = Color(214, 0, 41)
+# High-contrast, optical velocity palettes designed for translucent smoky polycarbonate
 COLOR_SOLAR_WHITE   = Color(255, 255, 255)
+# Legacy aliases for compatibility
+COLOR_MOLTEN_GOLD   = Color(255, 184, 0)
+COLOR_NEON_VIOLET   = Color(180, 0, 255)
+COLOR_STEALTH_BLOOD = Color(255, 0, 128)
+
+WPM_THEMES: Dict[str, List[Color]] = {
+    # 1. Tachometer: F1-style 5-zone racing meter with maximum optical contrast against crimson/purple
+    #    1-3: Electric Ice Cyan (#00F0FF)
+    #    4-5: Electric Neon Mint (#00FFAA)
+    #    6-7: Solar Amber Gold (#FFB800)
+    #    8-9: Hot Neon Magenta (#FF0080)
+    #    0:   Hyperdrive Solar White (#FFFFFF)
+    "tachometer": [
+        Color(0, 240, 255),   # 1: Electric Ice Cyan
+        Color(0, 229, 255),   # 2: Electric Ice Cyan
+        Color(0, 200, 255),   # 3: Vivid Sky Azure
+        Color(0, 255, 170),   # 4: Electric Neon Mint
+        Color(20, 245, 120),  # 5: Electric Lime Mint
+        Color(255, 215, 0),   # 6: Solar Gold
+        Color(255, 160, 0),   # 7: Vivid Amber
+        Color(255, 0, 128),   # 8: Hot Neon Magenta
+        Color(255, 20, 180),  # 9: Shocking Electric Pink
+        Color(255, 255, 255), # 0: Hyperdrive Solar White
+    ],
+    # 2. Ice Cyan: Crisp, razor-sharp crystalline cyan directly complementary to crimson
+    "ice_cyan": [
+        Color(0, 240, 255),
+        Color(0, 235, 255),
+        Color(0, 225, 255),
+        Color(20, 220, 255),
+        Color(50, 225, 255),
+        Color(80, 230, 255),
+        Color(120, 235, 255),
+        Color(160, 240, 255),
+        Color(210, 250, 255),
+        Color(255, 255, 255),
+    ],
+    # 3. Cyberpunk: Neon Cyan through Ultraviolet to Hot Magenta & Pure White
+    "cyberpunk": [
+        Color(0, 240, 255),   # 1: Cyan
+        Color(0, 220, 255),   # 2: Azure
+        Color(30, 170, 255),  # 3: Sky Blue
+        Color(120, 70, 255),  # 4: Indigo
+        Color(170, 0, 255),   # 5: Ultraviolet
+        Color(215, 0, 235),   # 6: Neon Orchid
+        Color(255, 0, 150),   # 7: Hot Pink
+        Color(255, 0, 100),   # 8: Neon Rose
+        Color(255, 60, 180),  # 9: Shocking Fuchsia
+        Color(255, 255, 255), # 0: Solar White
+    ],
+    # 4. Amber Gold: Radiant molten solar amber transitioning into pure white (0% green)
+    "amber_gold": [
+        Color(255, 150, 0),   # 1: Deep Amber
+        Color(255, 165, 0),   # 2: Amber
+        Color(255, 180, 0),   # 3: Solar Gold
+        Color(255, 195, 0),   # 4: Warm Gold
+        Color(255, 210, 0),   # 5: Brilliant Gold
+        Color(255, 220, 30),  # 6: Yellow Gold
+        Color(255, 230, 70),  # 7: Light Gold
+        Color(255, 240, 120), # 8: Pale Sun
+        Color(255, 248, 180), # 9: Solar Ray
+        Color(255, 255, 255), # 0: Solar White
+    ],
+    # 5. Neon Mint: Matrix-style electric mint emerald transitioning into pure white
+    "neon_mint": [
+        Color(0, 255, 150),   # 1: Deep Mint
+        Color(0, 255, 165),   # 2: Electric Mint
+        Color(0, 255, 180),   # 3: Aqua Mint
+        Color(20, 255, 195),  # 4: Bright Mint
+        Color(50, 255, 210),  # 5: Neon Mint
+        Color(90, 255, 220),  # 6: Mint Frost
+        Color(130, 255, 230), # 7: Ice Mint
+        Color(170, 255, 240), # 8: Pale Mint
+        Color(215, 255, 248), # 9: Glacier White
+        Color(255, 255, 255), # 0: Solar White
+    ],
+}
+
 
 class WpmGaugeEffect(Effect):
-    def __init__(self, window_seconds: float = 4.0, max_scale_wpm: float = 100.0):
+    def __init__(self, window_seconds: float = 4.0, max_scale_wpm: float = 100.0, theme: str = "tachometer"):
         self.window_seconds = window_seconds
         self.max_scale_wpm = max_scale_wpm
+        self.theme = theme if theme in WPM_THEMES else "tachometer"
         self.enabled = True
 
         self._keystroke_timestamps: Deque[float] = deque()
@@ -45,6 +117,12 @@ class WpmGaugeEffect(Effect):
     @property
     def peak_wpm(self) -> float:
         return self._peak_wpm
+
+    def set_theme(self, theme_name: str) -> bool:
+        if theme_name in WPM_THEMES:
+            self.theme = theme_name
+            return True
+        return False
 
     def register_keystroke(self, timestamp: Optional[float] = None) -> None:
         """Called on physical keydown event."""
@@ -91,29 +169,27 @@ class WpmGaugeEffect(Effect):
         fraction = max(0.0, min(1.0, self._current_wpm / self.max_scale_wpm))
         total_keys = len(NUMBER_ROW_LEDS)
         active_keys_float = fraction * total_keys
-
-        # Determine velocity color based on current speed
-        if self._current_wpm < 45.0:
-            p = max(0.0, min(1.0, self._current_wpm / 45.0))
-            color = COLOR_MOLTEN_GOLD.lerp(COLOR_NEON_VIOLET, p)
-        elif self._current_wpm < 85.0:
-            p = max(0.0, min(1.0, (self._current_wpm - 45.0) / 40.0))
-            color = COLOR_NEON_VIOLET.lerp(COLOR_STEALTH_BLOOD, p)
-        else:
-            p = max(0.0, min(1.0, (self._current_wpm - 85.0) / 25.0))
-            color = COLOR_STEALTH_BLOOD.lerp(COLOR_SOLAR_WHITE, p)
+        palette = WPM_THEMES.get(self.theme, WPM_THEMES["tachometer"])
+        is_overdrive = self._current_wpm >= 100.0
 
         for i, led_idx in enumerate(NUMBER_ROW_LEDS):
             if led_idx >= layout.led_count:
                 continue
 
+            base_color = palette[min(i, len(palette) - 1)]
+
             if i < int(active_keys_float):
-                # Fully lit key
-                key_opacity = 0.95 * self._display_opacity
+                # Fully lit key - 100% opacity overrides base layer without muddy bleed
+                key_opacity = 1.0 * self._display_opacity
+                if is_overdrive:
+                    key_color = base_color.lerp(COLOR_SOLAR_WHITE, 0.35)
+                else:
+                    key_color = base_color
             elif i == int(active_keys_float):
-                # Partial leading edge key
+                # Partial leading edge key acts as luminous needle highlight
                 partial = active_keys_float - int(active_keys_float)
-                key_opacity = max(0.0, partial * 0.95 * self._display_opacity)
+                key_opacity = max(0.0, partial * 1.0 * self._display_opacity)
+                key_color = base_color.lerp(COLOR_SOLAR_WHITE, 0.45)
             else:
                 key_opacity = 0.0
 
@@ -121,6 +197,6 @@ class WpmGaugeEffect(Effect):
                 existing = buffer[led_idx]
                 if existing is not None:
                     ex_color, ex_alpha = existing
-                    buffer[led_idx] = (color.blend_alpha(ex_color, ex_alpha), min(1.0, key_opacity + ex_alpha))
+                    buffer[led_idx] = (key_color.blend_alpha(ex_color, ex_alpha), min(1.0, key_opacity + ex_alpha))
                 else:
-                    buffer[led_idx] = (color, key_opacity)
+                    buffer[led_idx] = (key_color, key_opacity)

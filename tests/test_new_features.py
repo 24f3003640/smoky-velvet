@@ -32,6 +32,28 @@ class TestNewFeatures(unittest.TestCase):
         rendered = any(buffer[k] is not None for k in NUMBER_ROW_LEDS)
         self.assertTrue(rendered)
 
+    def test_wpm_gauge_themes(self):
+        wpm = WpmGaugeEffect(window_seconds=4.0)
+        self.assertEqual(wpm.theme, "tachometer")
+        self.assertTrue(wpm.set_theme("ice_cyan"))
+        self.assertEqual(wpm.theme, "ice_cyan")
+        self.assertTrue(wpm.set_theme("cyberpunk"))
+        self.assertTrue(wpm.set_theme("amber_gold"))
+        self.assertTrue(wpm.set_theme("neon_mint"))
+        self.assertFalse(wpm.set_theme("invalid_theme"))
+
+        now = time.monotonic()
+        for i in range(25):
+            wpm.register_keystroke(now - (3.5 - i * 0.12))
+        wpm.update(0.1, now)
+        layout = MockLayout()
+        buffer = [None] * 82
+        wpm.render(layout, buffer)
+        # Key 15 ('1') should be rendered with a Color
+        self.assertIsNotNone(buffer[15])
+        col, opacity = buffer[15]
+        self.assertGreater(opacity, 0.0)
+
     def test_pomodoro_timer_lifecycle(self):
         pomo = PomodoroTimerEffect()
         self.assertFalse(pomo.is_active)

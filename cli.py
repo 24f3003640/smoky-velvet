@@ -68,8 +68,9 @@ def main():
     subparsers.add_parser("on", help="Alias: Instantly jump back to Smoky Velvet fluid lighting")
 
     # wpm
-    wpm_parser = subparsers.add_parser("wpm", help="Toggle or view real-time typing WPM speedometer")
-    wpm_parser.add_argument("state", nargs="?", choices=["on", "off"], help="Enable or disable WPM gauge")
+    wpm_parser = subparsers.add_parser("wpm", help="Toggle or configure real-time typing WPM speedometer")
+    wpm_parser.add_argument("state", nargs="?", help="on / off, list, or theme name (tachometer, ice_cyan, cyberpunk, amber_gold, neon_mint)")
+    wpm_parser.add_argument("--theme", choices=["tachometer", "ice_cyan", "cyberpunk", "amber_gold", "neon_mint"], default=None, help="WPM color theme")
 
     # pomodoro
     pomo_parser = subparsers.add_parser("pomodoro", help="Start or manage F-row focus timer")
@@ -128,7 +129,8 @@ def main():
         print(f"  • Base Color:      {data.get('base_color_hex')}")
         print(f"  • Brightness:      {int(data.get('brightness', 1.0) * 100)}%")
         print(f"  • Reactive Ripple: {'Enabled' if data.get('reactive_enabled') else 'Disabled'}")
-        print(f"  • Speedometer:     {data.get('wpm', 0)} WPM (Peak: {data.get('peak_wpm', 0)}) [{'Enabled' if data.get('wpm_enabled') else 'Disabled'}]")
+        theme_str = f" [Theme: {data.get('wpm_theme')}]" if data.get('wpm_theme') else ""
+        print(f"  • Speedometer:     {data.get('wpm', 0)} WPM (Peak: {data.get('peak_wpm', 0)}) [{'Enabled' if data.get('wpm_enabled') else 'Disabled'}]{theme_str}")
         pomo_str = f"Active ({data.get('pomodoro_remaining')} remaining)" if data.get('pomodoro_active') else "Inactive"
         print(f"  • Pomodoro Timer:  {pomo_str}")
         print(f"  • Auto-Profile:    {'Active (Hyprland App Detection)' if data.get('auto_profile') else 'Disabled'}")
@@ -253,13 +255,35 @@ def main():
         return
 
     if args.command == "wpm":
+        valid_themes = ["tachometer", "ice_cyan", "cyberpunk", "amber_gold", "neon_mint"]
         payload = {"action": "wpm"}
         if args.state:
-            payload["enabled"] = (args.state == "on")
+            s = args.state.lower()
+            if s in ("on", "off"):
+                payload["enabled"] = (s == "on")
+            elif s in valid_themes:
+                payload["theme"] = s
+                payload["enabled"] = True
+            elif s == "list":
+                print("⚡ Available WPM Speedometer Themes:")
+                print("  • tachometer  - F1 5-zone racing meter (Ice Cyan -> Mint -> Gold -> Hot Magenta -> White) [DEFAULT]")
+                print("  • ice_cyan    - Crisp crystalline cyan cutting sharply through crimson base")
+                print("  • cyberpunk   - Electric Cyan into Ultraviolet, Hot Pink and Solar White")
+                print("  • amber_gold  - Pure molten solar amber transitioning into white")
+                print("  • neon_mint   - Futuristic matrix electric mint emerald into white")
+                return
+            else:
+                print(f"❌ Unknown WPM option '{args.state}'. Choose on, off, list, or one of: {', '.join(valid_themes)}")
+                return
+        if args.theme:
+            payload["theme"] = args.theme.lower()
+            payload["enabled"] = True
+
         resp = IpcClient.send_command(payload)
         if resp.get("status") == "ok":
             state = "Enabled" if resp.get("wpm_enabled") else "Disabled"
-            print(f"⚡ Live Typing Speedometer: {state} ({resp.get('current_wpm', 0)} WPM, Peak: {resp.get('peak_wpm', 0)})")
+            active_theme = resp.get("theme", "tachometer")
+            print(f"⚡ Live Typing Speedometer: {state} [{active_theme}] ({resp.get('current_wpm', 0)} WPM, Peak: {resp.get('peak_wpm', 0)})")
         else:
             print(f"❌ Error: {resp.get('message')}")
         return

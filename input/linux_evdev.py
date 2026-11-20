@@ -5,7 +5,9 @@ PRIVACY GUARANTEE: Zero text logging or buffering. Only transmits physical LED i
 """
 from __future__ import annotations
 import glob
+import json
 import logging
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -104,6 +106,30 @@ class LinuxEvdevListener(InputListener):
             t.start()
         return True
 
+    def _sync_caps_lock(self) -> None:
+        """
+        Synchronizes hardware Caps Lock LED state across all URX Core75 interfaces.
+        Fixes the Linux Wayland/Hyprland dual-interface desynchronization quirk.
+        """
+        caps_on = False
+        try:
+            res = subprocess.run(["hyprctl", "devices", "-j"], capture_output=True, text=True, timeout=0.5)
+            data = json.loads(res.stdout)
+            for kb in data.get("keyboards", []):
+                if "urx" in kb.get("name", "").lower() and kb.get("main", False):
+                    caps_on = bool(kb.get("capsLock", False))
+                    break
+        except Exception:
+            return
+
+        target_val = 1 if caps_on else 0
+        for dev in self._devices:
+            try:
+                if evdev.ecodes.EV_LED in dev.capabilities():
+                    dev.set_led(evdev.ecodes.LED_CAPSL, target_val)
+            except Exception:
+                pass
+
     def _supervisor_loop(self) -> None:
         """Monitors evdev reader threads. If keyboard resets or reconnects, reattaches automatically."""
         while not self._stop_event.wait(timeout=2.0):
@@ -113,6 +139,7 @@ class LinuxEvdevListener(InputListener):
                 if paths:
                     logger.info("Auto-reconnecting to URX Core75 input devices...")
                     self._attach_devices(paths)
+            self._sync_caps_lock()
 
     def start(self) -> None:
         if self._is_running:
@@ -256,6 +283,12 @@ class LinuxEvdevListener(InputListener):
 
                     # Standard keypress down (value == 1)
                     elif event.value == 1:
+                        if key_code == evdev.ecodes.KEY_CAPSLOCK:
+                            def _delayed_caps_sync():
+                                time.sleep(0.04)
+                                self._sync_caps_lock()
+                            threading.Thread(target=_delayed_caps_sync, daemon=True, name="CapsSync").start()
+
                         try:
                             key_name = evdev.ecodes.KEY[key_code]
                             if isinstance(key_name, list):

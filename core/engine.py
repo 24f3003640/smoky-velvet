@@ -437,6 +437,16 @@ class LightingEngine:
                 self.set_locked(not self.is_locked)
             return {"status": "ok", "locked": self.is_locked}
 
+        elif action == "set_indicator":
+            led = int(req.get("led", 44))
+            color_hex = req.get("color", "#FFFFFF")
+            clear = req.get("clear", False)
+            if clear:
+                self.compositor.indicator_layer.clear_indicator(led)
+            else:
+                self.compositor.indicator_layer.set_indicator(led, Color.from_hex(color_hex), opacity=1.0)
+            return {"status": "ok", "led": led, "clear": clear}
+
         elif action == "trigger_ripple":
             led = int(req.get("led", 75))
             self.trigger_key(led)

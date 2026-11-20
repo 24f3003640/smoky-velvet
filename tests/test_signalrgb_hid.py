@@ -4,9 +4,10 @@ from core.color import Color
 from hardware.signalrgb_hid import SignalRGBRawHIDAdapter, CMD_SIGNALRGB_ENABLE, CMD_SIGNALRGB_DISABLE, CMD_SIGNALRGB_STREAM
 
 class TestSignalRGBRawHID(unittest.TestCase):
+    @patch('os.path.exists', return_value=True)
     @patch('os.open')
     @patch('os.write')
-    def test_connect_sends_enable(self, mock_write, mock_open):
+    def test_connect_sends_enable(self, mock_write, mock_open, mock_exists):
         mock_open.return_value = 42
         adapter = SignalRGBRawHIDAdapter(device_path="/dev/hidraw1")
 
@@ -20,10 +21,11 @@ class TestSignalRGBRawHID(unittest.TestCase):
         self.assertEqual(len(first_call_bytes), 32)
         self.assertEqual(first_call_bytes[0], CMD_SIGNALRGB_ENABLE)
 
+    @patch('os.path.exists', return_value=True)
     @patch('os.open')
     @patch('os.write')
     @patch('os.close')
-    def test_disconnect_sends_disable_and_restores(self, mock_close, mock_write, mock_open):
+    def test_disconnect_sends_disable_and_restores(self, mock_close, mock_write, mock_open, mock_exists):
         mock_open.return_value = 42
         adapter = SignalRGBRawHIDAdapter(device_path="/dev/hidraw1")
         adapter.connect()
@@ -37,9 +39,10 @@ class TestSignalRGBRawHID(unittest.TestCase):
         self.assertTrue(any(call[0] == CMD_SIGNALRGB_DISABLE for call in calls))
         mock_close.assert_called_with(42)
 
+    @patch('os.path.exists', return_value=True)
     @patch('os.open')
     @patch('os.write')
-    def test_send_frame_chunking(self, mock_write, mock_open):
+    def test_send_frame_chunking(self, mock_write, mock_open, mock_exists):
         mock_open.return_value = 42
         adapter = SignalRGBRawHIDAdapter(device_path="/dev/hidraw1")
         adapter.connect()
@@ -68,9 +71,10 @@ class TestSignalRGBRawHID(unittest.TestCase):
                 self.assertEqual(count, 1)
                 self.assertEqual(start_idx, 81)
 
+    @patch('os.path.exists', return_value=True)
     @patch('os.open')
     @patch('os.write')
-    def test_pause_and_resume_streaming(self, mock_write, mock_open):
+    def test_pause_and_resume_streaming(self, mock_write, mock_open, mock_exists):
         mock_open.return_value = 42
         adapter = SignalRGBRawHIDAdapter(device_path="/dev/hidraw1")
         adapter.connect()

@@ -1,7 +1,8 @@
 """
 PipeWire Audio Beat, Melodic Onset & Dynamic Energy Monitor for Linux.
-Spawns a low-overhead pw-record monitor stream at 1000Hz mono (only 2KB/sec).
-Adaptive dynamic range auto-calibrates to all genres: classical, piano, ambient, jazz, and EDM.
+Connects directly to @DEFAULT_SINK@.monitor via parec (1000Hz mono, 2KB/sec).
+Adaptive dynamic range auto-calibrates to all volume levels and musical genres:
+Classical piano, orchestral symphonies, jazz, ambient, and EDM beats.
 """
 from __future__ import annotations
 import logging
@@ -39,7 +40,7 @@ class AudioEnergyMonitor:
         self._is_running = True
         self._thread = threading.Thread(target=self._monitor_loop, daemon=True, name="AudioBeatMonitor")
         self._thread.start()
-        logger.info("Adaptive audio energy monitor started (Classical & Beat support active).")
+        logger.info("Adaptive audio energy monitor started on @DEFAULT_SINK@.monitor.")
         return True
 
     def stop(self) -> None:
@@ -58,7 +59,8 @@ class AudioEnergyMonitor:
         logger.info("Audio energy monitor stopped.")
 
     def _monitor_loop(self) -> None:
-        cmd = ["pw-record", "--rate=1000", "--channels=1", "--format=s16", "-"]
+        # Use parec with @DEFAULT_SINK@.monitor to record exactly what user is hearing
+        cmd = ["parec", "-d", "@DEFAULT_SINK@.monitor", "--rate=1000", "--channels=1", "--format=s16le"]
         try:
             self._process = subprocess.Popen(
                 cmd,
@@ -67,14 +69,14 @@ class AudioEnergyMonitor:
                 bufsize=0
             )
         except Exception as e:
-            logger.warning(f"Failed to launch pw-record for audio monitor: {e}")
+            logger.warning(f"Failed to launch parec for audio monitor: {e}")
             self._is_running = False
             return
 
         # 32 samples = 32ms at 1000Hz (64 bytes)
         chunk_size = 64
-        noise_floor = 0.008
-        peak_rms = 0.08
+        noise_floor = 0.003
+        peak_rms = 0.025
         smooth_energy = 0.0
         last_rms = 0.0
         last_accent_time = 0.0
@@ -96,22 +98,22 @@ class AudioEnergyMonitor:
                 # Dynamic Auto-Calibration:
                 # Slowly track ambient noise floor and signal ceiling
                 noise_floor = min(noise_floor * 0.999 + 0.001 * rms, rms)
-                peak_rms = max(peak_rms * 0.996, rms, noise_floor + 0.02)
-                dynamic_range = max(0.015, peak_rms - noise_floor)
+                peak_rms = max(peak_rms * 0.996, rms, noise_floor + 0.008)
+                dynamic_range = max(0.006, peak_rms - noise_floor)
 
                 # 1. Continuous Loudness Envelope (Orchestral / Piano Crescendo Swell)
                 instant_loudness = max(0.0, min(1.0, (rms - noise_floor) / dynamic_range))
-                smooth_energy = 0.84 * smooth_energy + 0.16 * instant_loudness
+                smooth_energy = 0.80 * smooth_energy + 0.20 * instant_loudness
                 if self.on_energy:
                     self.on_energy(smooth_energy)
 
-                # 2. Melodic Note Strike & Transient Onset Detection (Piano/Violin/Drums)
+                # 2. Melodic Note Strike & Transient Onset Detection (Piano/Violin/Beats)
                 delta = rms - last_rms
                 last_rms = rms
 
                 # Relative contrast trigger: works at any volume level
-                if delta > (dynamic_range * 0.25) and (now - last_accent_time) > 0.18:
-                    accent_intensity = min(1.0, (delta / dynamic_range) * 2.2 + 0.25)
+                if delta > (dynamic_range * 0.16) and (now - last_accent_time) > 0.16:
+                    accent_intensity = min(1.0, (delta / dynamic_range) * 2.5 + 0.35)
                     self.on_beat(accent_intensity)
                     last_accent_time = now
 

@@ -16,7 +16,7 @@ from PyQt6.QtGui import QColor, QFont, QPainter, QBrush, QPen, QLinearGradient, 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QGridLayout, QLabel, QPushButton, QComboBox, QSlider, QFrame,
-    QColorDialog, QMessageBox, QGroupBox
+    QColorDialog, QMessageBox, QGroupBox, QListView
 )
 
 # Project root setup
@@ -83,9 +83,58 @@ QComboBox {{
     font-weight: bold;
     color: {TEXT_COLOR};
 }}
+QComboBox:hover {{
+    border-color: {ACCENT_PURPLE};
+}}
 QComboBox::drop-down {{
     border: none;
-    width: 20px;
+    width: 24px;
+}}
+QComboBox::down-arrow {{
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid {ACCENT_PURPLE};
+    margin-right: 6px;
+}}
+QComboBox QAbstractItemView {{
+    background-color: {PANEL_BG};
+    border: 1px solid {BORDER_COLOR};
+    border-radius: 8px;
+    padding: 4px;
+    color: {TEXT_COLOR};
+    selection-background-color: {ACCENT_PURPLE};
+    selection-color: #FFFFFF;
+    outline: none;
+}}
+QComboBox QAbstractItemView::item {{
+    min-height: 28px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    color: {TEXT_COLOR};
+    background-color: transparent;
+}}
+QComboBox QAbstractItemView::item:hover {{
+    background-color: {CARD_BG};
+    color: {ACCENT_BLUE};
+}}
+QComboBox QAbstractItemView::item:selected {{
+    background-color: {ACCENT_PURPLE};
+    color: #FFFFFF;
+}}
+QScrollBar:vertical {{
+    background: {PANEL_BG};
+    width: 8px;
+    border-radius: 4px;
+}}
+QScrollBar::handle:vertical {{
+    background: {CARD_BG};
+    border-radius: 4px;
+    min-height: 20px;
+}}
+QScrollBar::handle:vertical:hover {{
+    background: {ACCENT_PURPLE};
 }}
 QSlider::groove:horizontal {{
     height: 6px;
@@ -271,6 +320,7 @@ class MainWindow(QMainWindow):
         prof_vbox.setSpacing(12)
 
         self.profile_combo = QComboBox()
+        self.profile_combo.setView(QListView())
         self.profile_combo.currentIndexChanged.connect(self._on_profile_selected)
         prof_vbox.addWidget(QLabel("Active Profile:"))
         prof_vbox.addWidget(self.profile_combo)

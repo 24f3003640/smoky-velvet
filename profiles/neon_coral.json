@@ -1,0 +1,15 @@
+{
+  "name": "neon_coral",
+  "description": "Vibrant high-contrast daytime profile with rich Neon Coral base and pure White fluid ripple.",
+  "version": 1,
+  "base_color_hex": "#FF1E56",
+  "brightness": 1.0,
+  "reactive_enabled": true,
+  "reactive_duration": 1.20,
+  "reactive_max_radius": 3.0,
+  "reactive_wave_thickness": 1.2,
+  "reactive_crest_color_hex": "#FFFFFF",
+  "custom_key_colors": {},
+  "workspace_bindings": {},
+  "app_rules": {}
+}

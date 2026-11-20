@@ -1,0 +1,15 @@
+{
+  "name": "cyber_violet",
+  "description": "Synthwave cyberpunk daytime profile. Deep neon violet base with piercing electric cyan ripples.",
+  "version": 1,
+  "base_color_hex": "#9D00FF",
+  "brightness": 1.0,
+  "reactive_enabled": true,
+  "reactive_duration": 1.20,
+  "reactive_max_radius": 3.0,
+  "reactive_wave_thickness": 1.2,
+  "reactive_crest_color_hex": "#00F5FF",
+  "custom_key_colors": {},
+  "workspace_bindings": {},
+  "app_rules": {}
+}

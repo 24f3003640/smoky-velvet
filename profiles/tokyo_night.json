@@ -1,0 +1,15 @@
+{
+  "name": "tokyo_night",
+  "description": "Tokyo Night aesthetic. Deep marine cerulean base with delicate Sakura pink-white ripples.",
+  "version": 1,
+  "base_color_hex": "#0066CC",
+  "brightness": 1.0,
+  "reactive_enabled": true,
+  "reactive_duration": 1.20,
+  "reactive_max_radius": 3.0,
+  "reactive_wave_thickness": 1.2,
+  "reactive_crest_color_hex": "#FFB7C5",
+  "custom_key_colors": {},
+  "workspace_bindings": {},
+  "app_rules": {}
+}

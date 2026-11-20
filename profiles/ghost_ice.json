@@ -1,0 +1,15 @@
+{
+  "name": "ghost_ice",
+  "description": "Minimalist frosted glass daytime profile. Crisp pale glacial ice base with brilliant diamond white ripples.",
+  "version": 1,
+  "base_color_hex": "#70D6FF",
+  "brightness": 1.0,
+  "reactive_enabled": true,
+  "reactive_duration": 1.10,
+  "reactive_max_radius": 3.0,
+  "reactive_wave_thickness": 1.2,
+  "reactive_crest_color_hex": "#FFFFFF",
+  "custom_key_colors": {},
+  "workspace_bindings": {},
+  "app_rules": {}
+}

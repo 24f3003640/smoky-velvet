@@ -197,6 +197,8 @@ class WpmGaugeEffect(Effect):
                 existing = buffer[led_idx]
                 if existing is not None:
                     ex_color, ex_alpha = existing
-                    buffer[led_idx] = (key_color.blend_alpha(ex_color, ex_alpha), min(1.0, key_opacity + ex_alpha))
+                    # WPM speedometer has visual priority on the number row so ripples don't wash it out
+                    blended_color = ex_color.blend_alpha(key_color, key_opacity)
+                    buffer[led_idx] = (blended_color, max(key_opacity, ex_alpha))
                 else:
                     buffer[led_idx] = (key_color, key_opacity)

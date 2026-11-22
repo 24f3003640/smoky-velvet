@@ -104,10 +104,12 @@ systemctl --user restart smoky-velvet.service
 
 ---
 
-## 🪟 Windows Support
-Smoky Velvet runs natively on Windows 10 and 11 using `hidapi` and `pynput`, delivering the exact same 30 FPS custom lighting, Molten Gold WPM speedometer, and ripple physics with zero custom drivers needed.
+## 🪟 Windows 1-Line Quick Install
+Open **PowerShell** and paste this single command:
 
-* **Detailed Step-by-Step Guide:** [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md)
-* **One-Click Windows Launchers:**
-  * `run_smoky_velvet.bat` — Launches the background lighting engine
-  * `run_gui.bat` — Launches the Desktop Studio GUI
+```powershell
+irm https://raw.githubusercontent.com/24f3003640/smoky-velvet/main/install.ps1 | iex
+```
+
+* Automatically configures Python, downloads Smoky Velvet, installs drivers, creates Desktop shortcuts, and starts the engine.
+* See [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md) for full manual options.

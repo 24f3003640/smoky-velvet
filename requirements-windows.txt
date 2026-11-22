@@ -1,0 +1,4 @@
+# Smoky Velvet Windows Dependencies
+hidapi>=0.14.0
+pynput>=1.7.6
+PyQt6>=6.5.0

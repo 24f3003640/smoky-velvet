@@ -18,8 +18,6 @@ from core.color import Color, MIDNIGHT_PURPLE, SMOKY_PLUM_PURPLE
 from core.layout import KeyboardLayout
 from core.engine import LightingEngine
 from hardware.adapter import OpenRGBDeviceAdapter
-from hardware.signalrgb_hid import SignalRGBRawHIDAdapter
-from input.linux_evdev import LinuxEvdevListener
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,11 +47,21 @@ def main():
     logger.info("Loading URX Core75 layout geometry...")
     layout = KeyboardLayout.load_from_via_json(layout_path)
 
+    is_windows = sys.platform.startswith("win")
+
     if args.backend == "rawhid":
-        adapter = SignalRGBRawHIDAdapter(
-            device_path=args.hidraw,
-            min_frame_interval=1.0 / args.fps
-        )
+        if is_windows:
+            from hardware.windows_hid import WindowsSignalRGBAdapter
+            adapter = WindowsSignalRGBAdapter(
+                device_path=args.hidraw,
+                min_frame_interval=1.0 / args.fps
+            )
+        else:
+            from hardware.signalrgb_hid import SignalRGBRawHIDAdapter
+            adapter = SignalRGBRawHIDAdapter(
+                device_path=args.hidraw,
+                min_frame_interval=1.0 / args.fps
+            )
     else:
         adapter = OpenRGBDeviceAdapter(
             host=args.host,
@@ -61,14 +69,19 @@ def main():
             min_frame_interval=1.0 / args.fps
         )
 
-    listener = LinuxEvdevListener(device_path=args.device_node)
+    if is_windows:
+        from input.windows_listener import WindowsInputListener
+        listener = WindowsInputListener()
+    else:
+        from input.linux_evdev import LinuxEvdevListener
+        listener = LinuxEvdevListener(device_path=args.device_node)
 
     engine = LightingEngine(
         layout=layout,
         adapter=adapter,
         input_listener=listener,
         target_fps=args.fps,
-        enable_hyprland=True
+        enable_hyprland=(not is_windows)
     )
     if args.brightness is not None:
         engine.set_brightness(args.brightness)

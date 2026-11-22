@@ -7,11 +7,15 @@ import json
 import logging
 import os
 import socket
+import sys
 import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+IS_WINDOWS = sys.platform.startswith("win")
+WINDOWS_IPC_PORT = 49753
 
 def get_socket_path() -> Path:
     runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
@@ -30,6 +34,22 @@ class IpcServer:
 
     def start(self) -> None:
         if self._is_running:
+            return
+
+        if IS_WINDOWS:
+            try:
+                self._server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self._server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                self._server_sock.bind(("127.0.0.1", WINDOWS_IPC_PORT))
+                self._server_sock.listen(5)
+                self._server_sock.settimeout(1.0)
+                self._stop_event.clear()
+                self._is_running = True
+                self._thread = threading.Thread(target=self._accept_loop, daemon=True, name="IpcServer")
+                self._thread.start()
+                logger.info(f"Smoky Velvet IPC server listening on: 127.0.0.1:{WINDOWS_IPC_PORT}")
+            except Exception as e:
+                logger.error(f"Failed to start Windows IPC server: {e}")
             return
 
         if self.socket_path.exists():
@@ -99,9 +119,22 @@ class IpcServer:
 
 
 class IpcClient:
-    """Client used by CLI to talk to running daemon."""
+    """Client used by CLI and GUI to talk to running daemon."""
     @staticmethod
     def send_command(command: Dict[str, Any], timeout: float = 2.0) -> Dict[str, Any]:
+        if IS_WINDOWS:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            try:
+                sock.connect(("127.0.0.1", WINDOWS_IPC_PORT))
+                sock.sendall(json.dumps(command).encode('utf-8'))
+                data = sock.recv(4096).decode('utf-8')
+                return json.loads(data)
+            except Exception as e:
+                return {"status": "error", "message": f"Smoky Velvet is not running on 127.0.0.1:{WINDOWS_IPC_PORT} ({e})"}
+            finally:
+                sock.close()
+
         sock_path = get_socket_path()
         if not sock_path.exists():
             return {"status": "error", "message": "Smoky Velvet is not running."}

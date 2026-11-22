@@ -101,3 +101,13 @@ journalctl --user -u smoky-velvet.service -f
 # Restart service
 systemctl --user restart smoky-velvet.service
 ```
+
+---
+
+## 🪟 Windows Support
+Smoky Velvet runs natively on Windows 10 and 11 using `hidapi` and `pynput`, delivering the exact same 30 FPS custom lighting, Molten Gold WPM speedometer, and ripple physics with zero custom drivers needed.
+
+* **Detailed Step-by-Step Guide:** [docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md)
+* **One-Click Windows Launchers:**
+  * `run_smoky_velvet.bat` — Launches the background lighting engine
+  * `run_gui.bat` — Launches the Desktop Studio GUI

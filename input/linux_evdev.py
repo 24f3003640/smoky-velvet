@@ -129,7 +129,8 @@ class LinuxEvdevListener(InputListener):
             data = json.loads(res.stdout)
             for kb in data.get("keyboards", []):
                 name = kb.get("name", "").lower()
-                if "urx" in name and kb.get("capsLock", False):
+                caps = kb.get("capsLock", False)
+                if "urx" in name and caps:
                     return True
             return False
         except Exception as e:
@@ -143,35 +144,6 @@ class LinuxEvdevListener(InputListener):
                     pass
             return False
 
-    def _force_hardware_led_sync(self, target_on: bool) -> None:
-        """
-        Forces an explicit kernel state transition by cycling through the inverse
-        state first. This guarantees that the Linux kernel's input subsystem
-        emits a USB HID Set_Report packet to the hardware MCU, overriding any
-        stale/ghost hardware indicator states (e.g. after dual-booting or reboot).
-        """
-        inverse_val = 0 if target_on else 1
-        target_val = 1 if target_on else 0
-        for dev in self._devices:
-            try:
-                if evdev.ecodes.EV_LED in dev.capabilities():
-                    dev.set_led(evdev.ecodes.LED_CAPSL, inverse_val)
-            except Exception:
-                pass
-        time.sleep(0.04)
-        for dev in self._devices:
-            try:
-                if evdev.ecodes.EV_LED in dev.capabilities():
-                    dev.set_led(evdev.ecodes.LED_CAPSL, target_val)
-            except Exception:
-                pass
-        self._last_synced_caps_state = target_on
-        if self._caps_lock_callback is not None:
-            try:
-                self._caps_lock_callback(target_on)
-            except Exception as e:
-                logger.debug(f"Caps lock callback error: {e}")
-
     def _sync_caps_lock(self, force: bool = False) -> None:
         """
         Synchronizes hardware Caps Lock LED state across all URX Core75 interfaces.
@@ -180,11 +152,7 @@ class LinuxEvdevListener(InputListener):
         """
         caps_on = self._query_caps_state()
 
-        if force or self._last_synced_caps_state is None:
-            self._force_hardware_led_sync(caps_on)
-            return
-
-        if caps_on != self._last_synced_caps_state:
+        if force or caps_on != self._last_synced_caps_state:
             target_val = 1 if caps_on else 0
             for dev in self._devices:
                 try:

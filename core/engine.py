@@ -189,6 +189,11 @@ class LightingEngine:
         else:
             self.compositor.indicator_layer.clear_indicator(44)
 
+        # Immediately deliver frame to hardware to overwrite/restore physical LED
+        if self._is_running and hasattr(self.adapter, "send_frame"):
+            frame, _ = self.compositor.render_frame()
+            self.adapter.send_frame(frame, force=True)
+
     def _dispatch_mpris(self, method: str) -> None:
         def _exec():
             try:
@@ -439,7 +444,12 @@ class LightingEngine:
 
         elif action == "dump_frame":
             frame, _ = self.compositor.render_frame()
-            return {"status": "ok", "colors": [c.to_hex() for c in frame]}
+            return {
+                "status": "ok",
+                "colors": [c.to_hex() for c in frame],
+                "base_44": self.compositor.base_layer.colors[44].to_hex(),
+                "indicators": {str(k): (v[0].to_hex(), v[1]) for k, v in self.compositor.indicator_layer.indicators.items()}
+            }
 
         elif action == "set_indicator":
             led = int(req.get("led", 44))

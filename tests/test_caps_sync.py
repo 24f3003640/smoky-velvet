@@ -31,19 +31,15 @@ class TestCapsSync(unittest.TestCase):
         self.listener._devices = [self.dev_kbd, self.dev_nkro, self.dev_mouse]
 
     @patch.object(LinuxEvdevListener, "_query_caps_state", return_value=False)
-    def test_boot_force_hardware_sync(self, mock_query):
-        """Verify on startup, force sync executes inverse (1) then target (0) pulse."""
+    def test_startup_sync_sets_target_state(self, mock_query):
+        """Verify on startup, sync applies actual state without artificial inverse pulses."""
         callback_calls = []
         self.listener.set_caps_lock_callback(lambda val: callback_calls.append(val))
 
         # First sync (startup)
         self.listener._sync_caps_lock(force=True)
 
-        # Both keyboard devices must have received (LED_CAPSL, 1) followed by (LED_CAPSL, 0)
-        expected_calls = [
-            (evdev.ecodes.LED_CAPSL, 1),
-            (evdev.ecodes.LED_CAPSL, 0)
-        ]
+        expected_calls = [(evdev.ecodes.LED_CAPSL, 0)]
         self.assertEqual(self.dev_kbd.led_calls, expected_calls)
         self.assertEqual(self.dev_nkro.led_calls, expected_calls)
         self.assertEqual(self.dev_mouse.led_calls, [])

@@ -104,5 +104,25 @@ class TestWindowsSupport(unittest.TestCase):
         listener._on_press(MockNamedKey('media_volume_mute'))
         self.assertIn("mute_click", knob_events)
 
+    def test_windows_knob_win_key_media_track(self):
+        import input.windows_listener
+        listener = WindowsInputListener()
+        knob_events = []
+        listener.set_knob_callback(lambda action, ts: knob_events.append(action))
+
+        class MockNamedKey:
+            def __init__(self, name):
+                self.name = name
+
+        # Simulate Win key (VK_LWIN 0x5B) being held via mock windll
+        mock_windll = MagicMock()
+        mock_windll.user32.GetAsyncKeyState.side_effect = lambda vk: 0x8000 if vk == 0x5B else 0
+        with patch.object(input.windows_listener.ctypes, "windll", mock_windll, create=True):
+            listener._on_press(MockNamedKey('media_volume_up'))
+            self.assertEqual(knob_events[-1], "media_next")
+
+            listener._on_press(MockNamedKey('media_volume_down'))
+            self.assertEqual(knob_events[-1], "media_prev")
+
 if __name__ == "__main__":
     unittest.main()

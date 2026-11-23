@@ -83,5 +83,39 @@ class TestEngineKnobAndHardwareMode(unittest.TestCase):
         self.assertEqual(resp.get("status"), "ok")
         self.assertFalse(self.adapter.is_paused)
 
+    def test_knob_media_next_prev_actions(self):
+        self.engine._dispatch_mpris = MagicMock()
+
+        # media_next should call _dispatch_mpris("Next")
+        self.engine._on_knob_action("media_next", 200.0)
+        self.engine._dispatch_mpris.assert_called_with("Next")
+
+        # media_prev should call _dispatch_mpris("Previous")
+        self.engine._on_knob_action("media_prev", 201.0)
+        self.engine._dispatch_mpris.assert_called_with("Previous")
+
+    def test_evdev_super_knob_mapping(self):
+        from input.linux_evdev import LinuxEvdevListener
+        listener = LinuxEvdevListener()
+
+        # Default: volume up / down
+        self.assertEqual(listener._resolve_knob_turn("up"), "volume_up")
+        self.assertEqual(listener._resolve_knob_turn("down"), "volume_down")
+
+        # With Super (Win key) held: media_next / media_prev
+        with listener._modifier_lock:
+            listener._active_modifiers.add("super")
+
+        self.assertEqual(listener._resolve_knob_turn("up"), "media_next")
+        self.assertEqual(listener._resolve_knob_turn("down"), "media_prev")
+
+        # With Ctrl or Alt: workspace_next / workspace_prev
+        with listener._modifier_lock:
+            listener._active_modifiers.remove("super")
+            listener._active_modifiers.add("ctrl")
+
+        self.assertEqual(listener._resolve_knob_turn("up"), "workspace_next")
+        self.assertEqual(listener._resolve_knob_turn("down"), "workspace_prev")
+
 if __name__ == '__main__':
     unittest.main()

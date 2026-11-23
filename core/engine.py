@@ -5,6 +5,7 @@ Hyprland IPC events, and hardware frame delivery.
 """
 from __future__ import annotations
 import logging
+import platform
 import subprocess
 import threading
 import time
@@ -194,8 +195,35 @@ class LightingEngine:
             frame, _ = self.compositor.render_frame()
             self.adapter.send_frame(frame, force=True)
 
+            # Re-push frame after 50ms to guarantee any asynchronous MCU indicator reset settles
+            def _delayed_confirm():
+                time.sleep(0.05)
+                if self._is_running and hasattr(self.adapter, "send_frame"):
+                    f, _ = self.compositor.render_frame()
+                    self.adapter.send_frame(f, force=True)
+            threading.Thread(target=_delayed_confirm, daemon=True).start()
+
     def _dispatch_mpris(self, method: str) -> None:
         def _exec():
+            if platform.system() == "Windows":
+                try:
+                    import ctypes
+                    VK_MEDIA_NEXT_TRACK = 0xB0
+                    VK_MEDIA_PREV_TRACK = 0xB1
+                    VK_MEDIA_PLAY_PAUSE = 0xB3
+                    vk_map = {
+                        "Next": VK_MEDIA_NEXT_TRACK,
+                        "Previous": VK_MEDIA_PREV_TRACK,
+                        "PlayPause": VK_MEDIA_PLAY_PAUSE,
+                    }
+                    vk = vk_map.get(method)
+                    if vk:
+                        ctypes.windll.user32.keybd_event(vk, 0, 0, 0)
+                        ctypes.windll.user32.keybd_event(vk, 0, 2, 0)  # KEYEVENTF_KEYUP
+                except Exception as e:
+                    logger.debug(f"Windows media dispatch error: {e}")
+                return
+
             try:
                 out = subprocess.check_output(
                     ['dbus-send', '--session', '--dest=org.freedesktop.DBus', '--type=method_call', '--print-reply', '/org/freedesktop/DBus', 'org.freedesktop.DBus.ListNames'],
@@ -477,6 +505,10 @@ class LightingEngine:
             logger.error("Failed to connect to hardware device adapter.")
             return False
 
+        # Mark running early so callbacks (such as initial Caps Lock sync) deliver frames immediately
+        self._stop_event.clear()
+        self._is_running = True
+
         # 2. Start input listener
         if self.input_listener:
             self.input_listener.set_callback(self.trigger_key)
@@ -493,8 +525,6 @@ class LightingEngine:
             self.hyprland.start()
 
         # 5. Start render loop thread
-        self._stop_event.clear()
-        self._is_running = True
         self._thread = threading.Thread(target=self._render_loop, daemon=True, name="LightingEngineLoop")
         self._thread.start()
         logger.info(f"Smoky Velvet lighting engine started at {self.target_fps:.0f} FPS.")

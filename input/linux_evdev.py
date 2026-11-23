@@ -38,9 +38,9 @@ class LinuxEvdevListener(InputListener):
         """Resolve knob turn action based on active modifier keys."""
         with self._modifier_lock:
             if 'super' in self._active_modifiers:
-                return "workspace_next" if direction == "up" else "workspace_prev"
-            elif 'ctrl' in self._active_modifiers or 'alt' in self._active_modifiers:
                 return "media_next" if direction == "up" else "media_prev"
+            elif 'ctrl' in self._active_modifiers or 'alt' in self._active_modifiers:
+                return "workspace_next" if direction == "up" else "workspace_prev"
             elif 'shift' in self._active_modifiers:
                 return "led_brightness_up" if direction == "up" else "led_brightness_down"
             return "volume_up" if direction == "up" else "volume_down"
@@ -121,6 +121,11 @@ class LinuxEvdevListener(InputListener):
             self._caps_timer = threading.Timer(delay, self._sync_caps_lock)
             self._caps_timer.daemon = True
             self._caps_timer.start()
+
+            # Schedule follow-up check to guarantee synchronization after compositor transitions
+            followup = threading.Timer(delay + 0.15, self._sync_caps_lock)
+            followup.daemon = True
+            followup.start()
 
     def _query_caps_state(self) -> bool:
         """Queries current Caps Lock lock-state from Hyprland devices, with sysfs fallback."""

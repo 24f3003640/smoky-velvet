@@ -116,17 +116,46 @@ class WindowsInputListener(InputListener):
         # Check for volume knob / multimedia keys
         if hasattr(key, "name") and key.name:
             k_name = key.name.lower()
-            if k_name == "media_volume_up":
+            if k_name in ("media_volume_up", "media_volume_down"):
+                # Detect active modifiers via Win32 GetAsyncKeyState
+                is_win = False
+                is_ctrl_or_alt = False
+                is_shift = False
+                try:
+                    # VK_LWIN = 0x5B, VK_RWIN = 0x5C
+                    is_win = bool((ctypes.windll.user32.GetAsyncKeyState(0x5B) & 0x8000) or
+                                  (ctypes.windll.user32.GetAsyncKeyState(0x5C) & 0x8000))
+                    # VK_CONTROL = 0x11, VK_MENU = 0x12
+                    is_ctrl_or_alt = bool((ctypes.windll.user32.GetAsyncKeyState(0x11) & 0x8000) or
+                                          (ctypes.windll.user32.GetAsyncKeyState(0x12) & 0x8000))
+                    # VK_SHIFT = 0x10
+                    is_shift = bool(ctypes.windll.user32.GetAsyncKeyState(0x10) & 0x8000)
+                except Exception:
+                    pass
+
+                direction = "up" if k_name == "media_volume_up" else "down"
+                if is_win:
+                    action = "media_next" if direction == "up" else "media_prev"
+                elif is_ctrl_or_alt:
+                    action = "workspace_next" if direction == "up" else "workspace_prev"
+                elif is_shift:
+                    action = "led_brightness_up" if direction == "up" else "led_brightness_down"
+                else:
+                    action = "volume_up" if direction == "up" else "volume_down"
+
                 if self._knob_callback is not None:
-                    self._knob_callback("volume_up", now)
-                return
-            elif k_name == "media_volume_down":
-                if self._knob_callback is not None:
-                    self._knob_callback("volume_down", now)
+                    self._knob_callback(action, now)
                 return
             elif k_name == "media_volume_mute":
+                is_ctrl_or_alt = False
+                try:
+                    is_ctrl_or_alt = bool((ctypes.windll.user32.GetAsyncKeyState(0x11) & 0x8000) or
+                                          (ctypes.windll.user32.GetAsyncKeyState(0x12) & 0x8000))
+                except Exception:
+                    pass
+                action = "media_play_pause" if is_ctrl_or_alt else "mute_click"
                 if self._knob_callback is not None:
-                    self._knob_callback("mute_click", now)
+                    self._knob_callback(action, now)
                 return
             elif k_name == "media_play_pause":
                 if self._knob_callback is not None:

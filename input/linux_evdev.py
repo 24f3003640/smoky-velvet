@@ -32,6 +32,7 @@ class LinuxEvdevListener(InputListener):
         self._modifier_lock = threading.Lock()
         self._caps_timer: Optional[threading.Timer] = None
         self._caps_timer_lock = threading.Lock()
+        self._last_synced_caps_state: Optional[bool] = None
 
     def _resolve_knob_turn(self, direction: str) -> str:
         """Resolve knob turn action based on active modifier keys."""
@@ -85,6 +86,7 @@ class LinuxEvdevListener(InputListener):
                 pass
         self._devices.clear()
         self._threads.clear()
+        self._last_synced_caps_state = None
 
         for p in target_paths:
             try:
@@ -120,39 +122,82 @@ class LinuxEvdevListener(InputListener):
             self._caps_timer.daemon = True
             self._caps_timer.start()
 
-    def _sync_caps_lock(self) -> None:
-        """
-        Synchronizes hardware Caps Lock LED state across all URX Core75 interfaces.
-        Fixes the Linux Wayland/Hyprland dual-interface desynchronization quirk.
-        NOTE: Never injects synthetic keystrokes. Only sets output LED state via dev.set_led.
-        """
-        caps_on = False
+    def _query_caps_state(self) -> bool:
+        """Queries current Caps Lock lock-state from Hyprland devices, with sysfs fallback."""
         try:
             res = subprocess.run(["hyprctl", "devices", "-j"], capture_output=True, text=True, timeout=0.8)
             data = json.loads(res.stdout)
             for kb in data.get("keyboards", []):
                 name = kb.get("name", "").lower()
-                # Focus strictly on the primary URX typing keyboard
-                if "urx" in name and ("keyboard" in name or kb.get("main", False)):
-                    caps_on = bool(kb.get("capsLock", False))
-                    if kb.get("main", False):
-                        break
-        except Exception:
-            return
+                if "urx" in name and kb.get("capsLock", False):
+                    return True
+            return False
+        except Exception as e:
+            logger.debug(f"Hyprctl Caps Lock check error: {e}")
+            for p in glob.glob("/sys/class/leds/*capslock*/brightness"):
+                try:
+                    with open(p, "r") as f:
+                        if f.read().strip() == "1":
+                            return True
+                except Exception:
+                    pass
+            return False
 
-        target_val = 1 if caps_on else 0
+    def _force_hardware_led_sync(self, target_on: bool) -> None:
+        """
+        Forces an explicit kernel state transition by cycling through the inverse
+        state first. This guarantees that the Linux kernel's input subsystem
+        emits a USB HID Set_Report packet to the hardware MCU, overriding any
+        stale/ghost hardware indicator states (e.g. after dual-booting or reboot).
+        """
+        inverse_val = 0 if target_on else 1
+        target_val = 1 if target_on else 0
+        for dev in self._devices:
+            try:
+                if evdev.ecodes.EV_LED in dev.capabilities():
+                    dev.set_led(evdev.ecodes.LED_CAPSL, inverse_val)
+            except Exception:
+                pass
+        time.sleep(0.04)
         for dev in self._devices:
             try:
                 if evdev.ecodes.EV_LED in dev.capabilities():
                     dev.set_led(evdev.ecodes.LED_CAPSL, target_val)
             except Exception:
                 pass
-
+        self._last_synced_caps_state = target_on
         if self._caps_lock_callback is not None:
             try:
-                self._caps_lock_callback(caps_on)
+                self._caps_lock_callback(target_on)
             except Exception as e:
                 logger.debug(f"Caps lock callback error: {e}")
+
+    def _sync_caps_lock(self, force: bool = False) -> None:
+        """
+        Synchronizes hardware Caps Lock LED state across all URX Core75 interfaces.
+        Fixes the Linux Wayland/Hyprland dual-interface desynchronization quirk.
+        NOTE: Never injects synthetic keystrokes. Only sets output LED state via dev.set_led.
+        """
+        caps_on = self._query_caps_state()
+
+        if force or self._last_synced_caps_state is None:
+            self._force_hardware_led_sync(caps_on)
+            return
+
+        if caps_on != self._last_synced_caps_state:
+            target_val = 1 if caps_on else 0
+            for dev in self._devices:
+                try:
+                    if evdev.ecodes.EV_LED in dev.capabilities():
+                        dev.set_led(evdev.ecodes.LED_CAPSL, target_val)
+                except Exception:
+                    pass
+            self._last_synced_caps_state = caps_on
+            if self._caps_lock_callback is not None:
+                try:
+                    self._caps_lock_callback(caps_on)
+                except Exception as e:
+                    logger.debug(f"Caps lock callback error: {e}")
 
     def _supervisor_loop(self) -> None:
         """Monitors evdev reader threads. If keyboard resets or reconnects, reattaches automatically."""
@@ -175,6 +220,7 @@ class LinuxEvdevListener(InputListener):
         target_paths = self._find_device_paths()
         if target_paths:
             self._attach_devices(target_paths)
+            self._sync_caps_lock(force=True)
         else:
             logger.warning("No URX Core75 input devices found on startup. Supervisor will auto-detect on connection.")
 

@@ -89,6 +89,10 @@ def main():
     lock_parser = subparsers.add_parser("lock", help="Engage/disengage lockscreen ambient breathing mode")
     lock_parser.add_argument("state", nargs="?", choices=["on", "off"], help="Force lock mode on or off")
 
+    # color <hex>
+    color_parser = subparsers.add_parser("color", help="Set live base color (e.g. #FFD28C)")
+    color_parser.add_argument("hex", type=str, help="Hex color code (e.g. #FFFFFF)")
+
     args = parser.parse_args()
 
     if args.command == "gui":
@@ -244,6 +248,14 @@ def main():
                 print("🌙 Night Mode activated (low intensity velvet)")
             else:
                 print(f"❌ Error: {resp.get('message')}")
+        return
+
+    if args.command == "color":
+        resp = IpcClient.send_command({"action": "set_color", "hex": args.hex})
+        if resp.get("status") == "ok":
+            print(f"🎨 Live base color set to: {resp.get('color')}")
+        else:
+            print(f"❌ Error: {resp.get('message')}")
         return
 
     if args.command == "test-ripple":

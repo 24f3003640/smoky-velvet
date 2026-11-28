@@ -1,8 +1,8 @@
 {
   "name": "pure_white",
-  "description": "Pure White daytime profile. Clean, radiant 6500K daylight underglow with crystal azure ripple.",
+  "description": "Calibrated Pure White daytime profile. Compensated 5200K daylight underglow calibrated for smoky acrylic case.",
   "version": 1,
-  "base_color_hex": "#FFFFFF",
+  "base_color_hex": "#FFDBA4",
   "brightness": 1.0,
   "reactive_enabled": true,
   "reactive_duration": 0.8,

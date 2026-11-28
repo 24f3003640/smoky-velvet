@@ -142,6 +142,7 @@ class LightingEngine:
         logger.info(f"Applied profile: '{profile.name}' (Base: {profile.base_color_hex}, Brightness: {profile.brightness})")
 
     def switch_profile(self, name: str) -> bool:
+        self.profile_manager.load_all()
         prof = self.profile_manager.get_profile(name)
         if not prof:
             return False
@@ -346,6 +347,17 @@ class LightingEngine:
             if not name or not self.switch_profile(name):
                 return {"status": "error", "message": f"Profile '{name}' not found."}
             return {"status": "ok", "active_profile": name}
+
+        elif action in ("set_color", "set_base_color"):
+            hex_val = req.get("color") or req.get("hex")
+            if hex_val:
+                try:
+                    c = Color.from_hex(hex_val)
+                    self.set_base_color(c)
+                    return {"status": "ok", "color": c.to_hex()}
+                except Exception as e:
+                    return {"status": "error", "message": str(e)}
+            return {"status": "error", "message": "Missing 'color' or 'hex'"}
 
         elif action == "set_brightness":
             val = float(req.get("value", 1.0))

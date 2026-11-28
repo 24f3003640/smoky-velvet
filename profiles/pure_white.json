@@ -1,0 +1,15 @@
+{
+  "name": "pure_white",
+  "description": "Pure White daytime profile. Clean, radiant 6500K daylight underglow with crystal azure ripple.",
+  "version": 1,
+  "base_color_hex": "#FFFFFF",
+  "brightness": 1.0,
+  "reactive_enabled": true,
+  "reactive_duration": 0.8,
+  "reactive_max_radius": 3.5,
+  "reactive_wave_thickness": 1.2,
+  "reactive_crest_color_hex": "#00D2FF",
+  "custom_key_colors": {},
+  "workspace_bindings": {},
+  "app_rules": {}
+}

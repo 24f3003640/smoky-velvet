@@ -35,7 +35,7 @@ def main():
     subparsers.add_parser("toggle-ripple", help="Toggle reactive ripple effect on or off")
 
     # day
-    subparsers.add_parser("day", help="Quickly switch to Daytime Mode (Stealth Crimson)")
+    subparsers.add_parser("day", help="Quickly switch to Daytime Mode (Pure White)")
 
     # night
     subparsers.add_parser("night", help="Quickly switch to Nighttime Mode (Electric Sapphire)")
@@ -227,9 +227,9 @@ def main():
         return
 
     if args.command == "day":
-        resp = IpcClient.send_command({"action": "set_profile", "name": "stealth_crimson"})
+        resp = IpcClient.send_command({"action": "set_profile", "name": "pure_white"})
         if resp.get("status") == "ok":
-            print("☀️ Daytime Mode activated: Stealth Crimson (#D60029 Ember + Pure Solar White ripples)")
+            print("☀️ Daytime Mode activated: Pure White (#FFFFFF Daylight underglow)")
         else:
             print(f"❌ Error: {resp.get('message')}")
         return
